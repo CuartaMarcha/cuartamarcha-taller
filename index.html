@@ -585,7 +585,7 @@ async function renderPrecios(){
     <button class="btn btn-primary" onclick="modalPrecio()"><i class="ti ti-plus"></i> Nuevo precio</button>
   </div>
   <div class="card" style="padding:0">
-  ${data?.length?`<table><thead><tr><th>Descripción</th><th>Categoría</th><th>Precio contado</th><th>Precio tarjeta</th><th></th></tr></thead><tbody>
+  ${data?.length?`<table><thead><tr><th>Descripción</th><th>Categoría</th>class="green"><strong>${fmt(p.precio_contado)}</strong></td><td><span class="badge badge-blue">${p.horas_trabajo||0}h</span></td><td class="blue precio-tarjeta"><th></th></tr></thead><tbody>
   ${data.map(p=>`<tr><td><strong>${p.descripcion}</strong></td><td><span class="badge badge-gray">${p.categoria||'mano_de_obra'}</span></td><td class="green"><strong>${fmt(p.precio_contado)}</strong></td><td class="blue">${fmt(p.precio_tarjeta)}</td>
     <td style="display:flex;gap:4px">
       <button class="btn btn-sm" onclick="modalPrecio('${p.id}')"><i class="ti ti-edit"></i></button>
