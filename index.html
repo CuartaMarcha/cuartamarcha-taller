@@ -421,9 +421,9 @@ async function modalOrden(id){
       </select></div>
       <div><label>Mecánico</label><select id="f-mec">
         <option value="">Sin asignar</option>
-        <option value="Mecánico 1" ${o?.mecanico==='Mecánico 1'?'selected':''}>Mecánico 1</option>
-        <option value="Mecánico 2" ${o?.mecanico==='Mecánico 2'?'selected':''}>Mecánico 2</option>
-        <option value="Mecánico 3" ${o?.mecanico==='Mecánico 3'?'selected':''}>Mecánico 3</option>
+        <option value="Matias" ${o?.mecanico==='Matias'?'selected':''}>Matias</option>
+        <option value="Marcelo" ${o?.mecanico==='Marcelo'?'selected':''}>Marcelo</option>
+        <option value="Ángel" ${o?.mecanico==='Ángel'?'selected':''}>Ángel</option>
       </select></div>
     </div>
     <div><label>KM al ingreso</label><input id="f-km" value="${o?.kilometraje_ingreso||''}"></div>
@@ -558,9 +558,9 @@ async function modalTurno(id){
     <div class="grid2">
       <div><label>Mecánico</label><select id="f-mec-t">
         <option value="">Sin asignar</option>
-        <option value="Mecánico 1" ${t?.mecanico==='Mecánico 1'?'selected':''}>Mecánico 1</option>
-        <option value="Mecánico 2" ${t?.mecanico==='Mecánico 2'?'selected':''}>Mecánico 2</option>
-        <option value="Mecánico 3" ${t?.mecanico==='Mecánico 3'?'selected':''}>Mecánico 3</option>
+        <option value="Matias" ${t?.mecanico==='Matias'?'selected':''}>Matias</option>
+        <option value="Marcelo" ${t?.mecanico==='Marcelo'?'selected':''}>Marcelo</option>
+        <option value="Ángel" ${t?.mecanico==='Ángel'?'selected':''}>Ángel</option>
       </select></div>
       <div><label>Estado</label><select id="f-est-t">
         <option value="pendiente" ${t?.estado==='pendiente'?'selected':''}>Pendiente</option>
