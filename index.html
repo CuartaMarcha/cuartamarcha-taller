@@ -20,6 +20,7 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:v
 .nav-item:hover{background:#f0f0ee;color:var(--text)}
 .nav-item.active{background:#e8f5f0;color:var(--verde);font-weight:500;border-right-color:var(--verde)}
 .nav-item i{font-size:17px}
+.nav-bottom{padding:12px 16px;border-top:1px solid var(--border)}
 .main{flex:1;overflow-y:auto;display:flex;flex-direction:column}
 .topbar{padding:14px 24px;border-bottom:1px solid var(--border);background:var(--bg2);display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:10}
 .topbar-title{font-size:16px;font-weight:600}
@@ -55,7 +56,6 @@ tr:hover td{background:#fafaf8}
 .badge-blue{background:#e6f1fb;color:#185FA5}
 .badge-red{background:#fcebeb;color:#A32D2D}
 .badge-gray{background:#f0f0ee;color:#6b6b67}
-.badge-purple{background:#f0eefa;color:#5533aa}
 .avatar{width:34px;height:34px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;background:#e1f5ee;color:#0F6E56;flex-shrink:0}
 .search-wrap{position:relative}
 .search-wrap input{padding-left:34px}
@@ -65,20 +65,49 @@ tr:hover td{background:#fafaf8}
 .empty i{font-size:40px;margin-bottom:10px;display:block}
 .priority-bar{display:flex;gap:8px;margin-bottom:20px}
 .priority-col{flex:1;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:14px}
-.priority-col-title{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px;display:flex;align-items:center;gap:6px}
+.priority-col-title{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px}
 .orden-card{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:8px;cursor:pointer;transition:border-color .15s}
 .orden-card:hover{border-color:var(--verde)}
 .orden-card-num{font-size:11px;color:var(--text2);margin-bottom:2px}
 .orden-card-cliente{font-size:13px;font-weight:500}
 .orden-card-trabajo{font-size:12px;color:var(--text2);margin-top:2px}
-.tab-bar{display:flex;border-bottom:1px solid var(--border);margin-bottom:20px}
-.tab{padding:9px 18px;font-size:13px;cursor:pointer;color:var(--text2);border-bottom:2px solid transparent;margin-bottom:-1px}
-.tab.active{color:var(--verde);border-bottom-color:var(--verde);font-weight:500}
 .seccion-title{font-size:13px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:12px}
+/* LOGIN */
+.login-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--bg)}
+.login-box{background:var(--bg2);border:1px solid var(--border);border-radius:16px;padding:40px;width:380px;max-width:96vw}
+.login-logo{text-align:center;margin-bottom:32px}
+.login-logo-title{font-size:22px;font-weight:700;color:var(--verde)}
+.login-logo-sub{font-size:13px;color:var(--text2);margin-top:4px}
+.login-error{background:#fcebeb;color:#A32D2D;border-radius:8px;padding:10px 14px;font-size:13px;margin-top:12px;display:none}
 </style>
 </head>
 <body>
-<div class="app">
+
+<!-- LOGIN -->
+<div class="login-wrap" id="login-wrap">
+  <div class="login-box">
+    <div class="login-logo">
+      <div style="font-size:40px;color:var(--verde)"><i class="ti ti-tool"></i></div>
+      <div class="login-logo-title">Cuarta Marcha</div>
+      <div class="login-logo-sub">Taller Mecánico — Sistema de gestión</div>
+    </div>
+    <div>
+      <label>Email</label>
+      <input type="email" id="login-email" placeholder="tu@email.com" onkeydown="if(event.key==='Enter')entrar()">
+    </div>
+    <div>
+      <label>Contraseña</label>
+      <input type="password" id="login-pass" placeholder="••••••••" onkeydown="if(event.key==='Enter')entrar()">
+    </div>
+    <div class="login-error" id="login-error">Email o contraseña incorrectos</div>
+    <button class="btn btn-primary" style="width:100%;margin-top:20px;justify-content:center;padding:12px" onclick="entrar()">
+      <i class="ti ti-login"></i> Ingresar
+    </button>
+  </div>
+</div>
+
+<!-- SISTEMA -->
+<div class="app" id="sistema" style="display:none">
 <div class="sidebar">
   <div class="logo">
     <div class="logo-title"><i class="ti ti-tool"></i> Cuarta Marcha</div>
@@ -96,6 +125,9 @@ tr:hover td{background:#fafaf8}
     <button class="nav-item" onclick="ir('cuentas',this)"><i class="ti ti-credit-card"></i> Cuentas ctes.</button>
     <button class="nav-item" onclick="ir('caja',this)"><i class="ti ti-cash"></i> Caja</button>
     <button class="nav-item" onclick="ir('cierre',this)"><i class="ti ti-chart-bar"></i> Cierre mensual</button>
+  </div>
+  <div class="nav-bottom">
+    <button class="btn btn-sm" style="width:100%;justify-content:center" onclick="salir()"><i class="ti ti-logout"></i> Cerrar sesión</button>
   </div>
 </div>
 <div class="main">
@@ -116,10 +148,37 @@ const SUPA_URL = 'https://ejhyvfjwudeponhgawiz.supabase.co';
 const SUPA_KEY = 'sb_publishable_X_fOJC-3BhJ2ymGFB_6asQ_9T73J3GM';
 const supa = supabase.createClient(SUPA_URL, SUPA_KEY);
 
+// ── AUTH ──────────────────────────────────────────────────────────────────────
+async function entrar(){
+  const email = document.getElementById('login-email').value.trim();
+  const pass = document.getElementById('login-pass').value;
+  const err = document.getElementById('login-error');
+  err.style.display='none';
+  const {error} = await supa.auth.signInWithPassword({email, password:pass});
+  if(error){ err.style.display='block'; return; }
+  mostrarSistema();
+}
+
+async function salir(){
+  await supa.auth.signOut();
+  document.getElementById('sistema').style.display='none';
+  document.getElementById('login-wrap').style.display='flex';
+}
+
+async function mostrarSistema(){
+  document.getElementById('login-wrap').style.display='none';
+  document.getElementById('sistema').style.display='flex';
+  document.getElementById('fecha-top').textContent = new Date().toLocaleDateString('es-AR',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+  render();
+}
+
+// Verificar sesión al cargar
+supa.auth.getSession().then(({data:{session}})=>{
+  if(session) mostrarSistema();
+});
+
 const titles = {dashboard:'Inicio',clientes:'Clientes',vehiculos:'Vehículos',ordenes:'Órdenes de trabajo',prioridades:'Cola de prioridades',turnos:'Turnos',presupuestos:'Presupuestos',precios:'Lista de precios',cuentas:'Cuentas corrientes',caja:'Caja',cierre:'Cierre mensual'};
 let page = 'dashboard';
-
-document.getElementById('fecha-top').textContent = new Date().toLocaleDateString('es-AR',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
 
 function ir(p, el){
   document.querySelectorAll('.nav-item').forEach(b=>b.classList.remove('active'));
@@ -151,7 +210,7 @@ function badgePrioridad(p){
 
 async function render(){
   const c = document.getElementById('content');
-  c.innerHTML = '<div class="empty"><i class="ti ti-loader" style="animation:spin 1s linear infinite"></i></div>';
+  c.innerHTML = '<div class="empty"><i class="ti ti-loader"></i></div>';
   if(page==='dashboard') await renderDashboard();
   if(page==='clientes') await renderClientes();
   if(page==='vehiculos') await renderVehiculos();
@@ -165,7 +224,6 @@ async function render(){
   if(page==='cierre') await renderCierre();
 }
 
-// ── DASHBOARD ─────────────────────────────────────────────────────────────────
 async function renderDashboard(){
   const [clientes, ordenes, turnos, caja] = await Promise.all([
     supa.from('clientes').select('id'),
@@ -179,7 +237,6 @@ async function renderDashboard(){
   const abiertas = ordenes.data?.filter(o=>o.estado!=='entregado'&&o.estado!=='cancelado').length||0;
   const turnosHoy = turnos.data||[];
   const ordenesRecientes = (ordenes.data||[]).slice(-5).reverse();
-
   document.getElementById('content').innerHTML = `
   <div class="grid4" style="margin-bottom:20px">
     <div class="metric"><div class="metric-label">Clientes</div><div class="metric-value blue">${clientes.data?.length||0}</div></div>
@@ -192,8 +249,8 @@ async function renderDashboard(){
       <div class="seccion-title"><i class="ti ti-calendar"></i> Turnos de hoy</div>
       ${turnosHoy.length?turnosHoy.sort((a,b)=>a.hora.localeCompare(b.hora)).map(t=>`
         <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)">
-          <div style="font-weight:600;min-width:48px;font-size:13px">${t.hora?.slice(0,5)}</div>
-          <div><div style="font-size:13px;font-weight:500">${t.cliente_nombre||'Cliente'}</div><div style="font-size:11px;color:var(--text2)">${t.tipo_trabajo}</div></div>
+          <div style="font-weight:600;min-width:48px">${t.hora?.slice(0,5)}</div>
+          <div><div style="font-weight:500">${t.cliente_nombre||'Cliente'}</div><div style="font-size:11px;color:var(--text2)">${t.tipo_trabajo}</div></div>
           ${badgeEstado(t.estado)}
         </div>`).join(''):
         '<div class="empty" style="padding:24px"><i class="ti ti-calendar-off"></i><p>Sin turnos hoy</p></div>'}
@@ -202,7 +259,7 @@ async function renderDashboard(){
       <div class="seccion-title"><i class="ti ti-file-text"></i> Órdenes recientes</div>
       ${ordenesRecientes.length?ordenesRecientes.map(o=>`
         <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)">
-          <div><div style="font-size:13px;font-weight:500">${o.cliente_nombre||'Cliente'}</div><div style="font-size:11px;color:var(--text2)">${fmtFecha(o.fecha_ingreso)}</div></div>
+          <div><div style="font-weight:500">${o.cliente_nombre||'Cliente'}</div><div style="font-size:11px;color:var(--text2)">${fmtFecha(o.fecha_ingreso)}</div></div>
           <div style="display:flex;align-items:center;gap:8px"><span style="font-weight:500">${fmt(o.total)}</span>${badgeEstado(o.estado)}</div>
         </div>`).join(''):
         '<div class="empty" style="padding:24px"><i class="ti ti-file-off"></i><p>Sin órdenes</p></div>'}
@@ -210,28 +267,24 @@ async function renderDashboard(){
   </div>`;
 }
 
-// ── CLIENTES ──────────────────────────────────────────────────────────────────
 async function renderClientes(){
   const {data} = await supa.from('clientes').select('*').order('nombre');
   document.getElementById('content').innerHTML = `
   <div style="display:flex;gap:12px;margin-bottom:20px">
-    <div class="search-wrap" style="flex:1"><i class="ti ti-search si"></i><input type="text" placeholder="Buscar cliente..." id="buscar-cliente" oninput="filtrarClientes()" ></div>
+    <div class="search-wrap" style="flex:1"><i class="ti ti-search si"></i><input type="text" placeholder="Buscar cliente..." id="buscar-cliente" oninput="filtrarClientes()"></div>
     <button class="btn btn-primary" onclick="modalCliente()"><i class="ti ti-plus"></i> Nuevo cliente</button>
   </div>
-  <div class="card" style="padding:0" id="tabla-clientes">
-  ${renderTablaClientes(data||[])}
-  </div>`;
+  <div class="card" style="padding:0" id="tabla-clientes">${renderTablaClientes(data||[])}</div>`;
   window._clientes = data||[];
 }
 
 function renderTablaClientes(data){
   if(!data.length) return '<div class="empty"><i class="ti ti-users"></i><p>No hay clientes registrados</p></div>';
-  return `<table><thead><tr><th></th><th>Nombre</th><th>DNI</th><th>Teléfono</th><th>Email</th><th>Alta</th><th></th></tr></thead><tbody>
+  return `<table><thead><tr><th></th><th>Nombre</th><th>DNI</th><th>Teléfono</th><th>Email</th><th></th></tr></thead><tbody>
   ${data.map(c=>`<tr>
     <td><div class="avatar">${iniciales(c.nombre+' '+c.apellido)}</div></td>
     <td><div style="font-weight:500">${c.nombre} ${c.apellido}</div></td>
     <td>${c.dni||'-'}</td><td>${c.telefono||'-'}</td><td>${c.email||'-'}</td>
-    <td>${fmtFecha(c.created_at?.slice(0,10))}</td>
     <td style="display:flex;gap:4px">
       <button class="btn btn-sm" onclick="modalCliente('${c.id}')"><i class="ti ti-edit"></i></button>
       <button class="btn btn-sm btn-danger" onclick="eliminarCliente('${c.id}')"><i class="ti ti-trash"></i></button>
@@ -268,27 +321,19 @@ function modalCliente(id){
 }
 
 async function guardarCliente(id){
-  const data = {
-    nombre: document.getElementById('f-nombre').value.trim(),
-    apellido: document.getElementById('f-apellido').value.trim(),
-    dni: document.getElementById('f-dni').value.trim(),
-    telefono: document.getElementById('f-tel').value.trim(),
-    email: document.getElementById('f-email').value.trim(),
-    direccion: document.getElementById('f-dir').value.trim(),
-  };
+  const data={nombre:document.getElementById('f-nombre').value.trim(),apellido:document.getElementById('f-apellido').value.trim(),dni:document.getElementById('f-dni').value.trim(),telefono:document.getElementById('f-tel').value.trim(),email:document.getElementById('f-email').value.trim(),direccion:document.getElementById('f-dir').value.trim()};
   if(!data.nombre||!data.apellido||!data.telefono){alert('Completá nombre, apellido y teléfono');return;}
-  if(id){ await supa.from('clientes').update(data).eq('id',id); }
-  else { await supa.from('clientes').insert(data); }
+  if(id){await supa.from('clientes').update(data).eq('id',id);}
+  else{await supa.from('clientes').insert(data);}
   cerrarModal(); await renderClientes();
 }
 
 async function eliminarCliente(id){
-  if(!confirm('¿Eliminar este cliente?')) return;
+  if(!confirm('¿Eliminar este cliente?'))return;
   await supa.from('clientes').delete().eq('id',id);
   await renderClientes();
 }
 
-// ── VEHICULOS ─────────────────────────────────────────────────────────────────
 async function renderVehiculos(){
   const {data} = await supa.from('vehiculos').select('*, clientes(nombre,apellido)').order('marca');
   document.getElementById('content').innerHTML = `
@@ -297,39 +342,25 @@ async function renderVehiculos(){
   </div>
   <div class="card" style="padding:0">
   ${data?.length?`<table><thead><tr><th>Patente</th><th>Marca / Modelo</th><th>Año</th><th>Color</th><th>Cliente</th><th>KM</th><th></th></tr></thead><tbody>
-  ${data.map(v=>`<tr>
-    <td><strong>${v.patente}</strong></td>
-    <td>${v.marca} ${v.modelo}</td>
-    <td>${v.anio||'-'}</td><td>${v.color||'-'}</td>
-    <td>${v.clientes?.nombre||''} ${v.clientes?.apellido||''}</td>
-    <td>${v.kilometraje||'-'}</td>
+  ${data.map(v=>`<tr><td><strong>${v.patente}</strong></td><td>${v.marca} ${v.modelo}</td><td>${v.anio||'-'}</td><td>${v.color||'-'}</td><td>${v.clientes?.nombre||''} ${v.clientes?.apellido||''}</td><td>${v.kilometraje||'-'}</td>
     <td style="display:flex;gap:4px">
       <button class="btn btn-sm" onclick="modalVehiculo('${v.id}')"><i class="ti ti-edit"></i></button>
       <button class="btn btn-sm btn-danger" onclick="eliminarVehiculo('${v.id}')"><i class="ti ti-trash"></i></button>
-    </td></tr>`).join('')}
-  </tbody></table>`:'<div class="empty"><i class="ti ti-car"></i><p>No hay vehículos registrados</p></div>'}
+    </td></tr>`).join('')}</tbody></table>`:'<div class="empty"><i class="ti ti-car"></i><p>No hay vehículos</p></div>'}
   </div>`;
   window._vehiculos = data||[];
 }
 
 async function modalVehiculo(id){
   const {data:cls} = await supa.from('clientes').select('id,nombre,apellido').order('nombre');
-  const v = id ? (window._vehiculos||[]).find(x=>x.id===id) : {};
+  const v = id?(window._vehiculos||[]).find(x=>x.id===id):{};
   abrirModal(`
     <div class="modal-title"><span>${id?'Editar vehículo':'Nuevo vehículo'}</span><button class="btn btn-sm" onclick="cerrarModal()"><i class="ti ti-x"></i></button></div>
-    <div><label>Cliente *</label><select id="f-cliente-id">
-      <option value="">Seleccioná un cliente</option>
+    <div><label>Cliente *</label><select id="f-cliente-id"><option value="">Seleccioná un cliente</option>
       ${cls?.map(c=>`<option value="${c.id}" ${v?.cliente_id===c.id?'selected':''}>${c.nombre} ${c.apellido}</option>`).join('')}
     </select></div>
-    <div class="grid2">
-      <div><label>Marca *</label><input id="f-marca" value="${v?.marca||''}"></div>
-      <div><label>Modelo *</label><input id="f-modelo" value="${v?.modelo||''}"></div>
-    </div>
-    <div class="grid3">
-      <div><label>Año</label><input id="f-anio" value="${v?.anio||''}"></div>
-      <div><label>Patente *</label><input id="f-patente" value="${v?.patente||''}"></div>
-      <div><label>Color</label><input id="f-color" value="${v?.color||''}"></div>
-    </div>
+    <div class="grid2"><div><label>Marca *</label><input id="f-marca" value="${v?.marca||''}"></div><div><label>Modelo *</label><input id="f-modelo" value="${v?.modelo||''}"></div></div>
+    <div class="grid3"><div><label>Año</label><input id="f-anio" value="${v?.anio||''}"></div><div><label>Patente *</label><input id="f-patente" value="${v?.patente||''}"></div><div><label>Color</label><input id="f-color" value="${v?.color||''}"></div></div>
     <div><label>Kilometraje</label><input id="f-km" value="${v?.kilometraje||''}"></div>
     <div><label>Observaciones</label><textarea id="f-obs" rows="2">${v?.observaciones||''}</textarea></div>
     <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:20px">
@@ -339,52 +370,36 @@ async function modalVehiculo(id){
 }
 
 async function guardarVehiculo(id){
-  const data = {
-    cliente_id: document.getElementById('f-cliente-id').value,
-    marca: document.getElementById('f-marca').value.trim(),
-    modelo: document.getElementById('f-modelo').value.trim(),
-    anio: document.getElementById('f-anio').value.trim(),
-    patente: document.getElementById('f-patente').value.trim(),
-    color: document.getElementById('f-color').value.trim(),
-    kilometraje: document.getElementById('f-km').value.trim(),
-    observaciones: document.getElementById('f-obs').value.trim(),
-  };
+  const data={cliente_id:document.getElementById('f-cliente-id').value,marca:document.getElementById('f-marca').value.trim(),modelo:document.getElementById('f-modelo').value.trim(),anio:document.getElementById('f-anio').value.trim(),patente:document.getElementById('f-patente').value.trim(),color:document.getElementById('f-color').value.trim(),kilometraje:document.getElementById('f-km').value.trim(),observaciones:document.getElementById('f-obs').value.trim()};
   if(!data.cliente_id||!data.marca||!data.modelo||!data.patente){alert('Completá los campos obligatorios');return;}
-  if(id){ await supa.from('vehiculos').update(data).eq('id',id); }
-  else { await supa.from('vehiculos').insert(data); }
+  if(id){await supa.from('vehiculos').update(data).eq('id',id);}
+  else{await supa.from('vehiculos').insert(data);}
   cerrarModal(); await renderVehiculos();
 }
 
 async function eliminarVehiculo(id){
-  if(!confirm('¿Eliminar este vehículo?')) return;
+  if(!confirm('¿Eliminar este vehículo?'))return;
   await supa.from('vehiculos').delete().eq('id',id);
   await renderVehiculos();
 }
 
-// ── ORDENES ───────────────────────────────────────────────────────────────────
 async function renderOrdenes(){
   const {data} = await supa.from('ordenes').select('*').order('created_at',{ascending:false});
   document.getElementById('content').innerHTML = `
-  <div style="display:flex;gap:12px;margin-bottom:20px">
-    <div style="flex:1"></div>
+  <div style="display:flex;justify-content:flex-end;margin-bottom:20px">
     <button class="btn btn-primary" onclick="modalOrden()"><i class="ti ti-plus"></i> Nueva orden</button>
   </div>
   <div class="card" style="padding:0">
   ${data?.length?`<table><thead><tr><th>#</th><th>Cliente</th><th>Vehículo</th><th>Ingreso</th><th>Mecánico</th><th>Prioridad</th><th>Estado</th><th>Total</th><th></th></tr></thead><tbody>
   ${data.map(o=>`<tr>
-    <td><strong>#${o.numero}</strong></td>
-    <td>${o.cliente_nombre||'-'}</td>
+    <td><strong>#${o.numero}</strong></td><td>${o.cliente_nombre||'-'}</td>
     <td>${o.vehiculo_patente||''} ${o.vehiculo_marca||''} ${o.vehiculo_modelo||''}</td>
-    <td>${fmtFecha(o.fecha_ingreso)}</td>
-    <td>${o.mecanico||'-'}</td>
-    <td>${badgePrioridad(o.prioridad)}</td>
-    <td>${badgeEstado(o.estado)}</td>
+    <td>${fmtFecha(o.fecha_ingreso)}</td><td>${o.mecanico||'-'}</td>
+    <td>${badgePrioridad(o.prioridad)}</td><td>${badgeEstado(o.estado)}</td>
     <td><strong>${fmt(o.total)}</strong></td>
     <td style="display:flex;gap:4px">
       <button class="btn btn-sm" onclick="modalOrden('${o.id}')"><i class="ti ti-edit"></i></button>
-      <button class="btn btn-sm" onclick="verOrden('${o.id}')"><i class="ti ti-eye"></i></button>
-    </td></tr>`).join('')}
-  </tbody></table>`:'<div class="empty"><i class="ti ti-file-off"></i><p>No hay órdenes</p></div>'}
+    </td></tr>`).join('')}</tbody></table>`:'<div class="empty"><i class="ti ti-file-off"></i><p>No hay órdenes</p></div>'}
   </div>`;
   window._ordenes = data||[];
 }
@@ -394,7 +409,7 @@ async function modalOrden(id){
     supa.from('clientes').select('id,nombre,apellido').order('nombre'),
     supa.from('vehiculos').select('id,patente,marca,modelo,cliente_id').order('patente')
   ]);
-  const o = id ? (window._ordenes||[]).find(x=>x.id===id) : {};
+  const o = id?(window._ordenes||[]).find(x=>x.id===id):{};
   abrirModal(`
     <div class="modal-title"><span>${id?'Editar orden #'+o.numero:'Nueva orden de trabajo'}</span><button class="btn btn-sm" onclick="cerrarModal()"><i class="ti ti-x"></i></button></div>
     <div class="grid2">
@@ -421,13 +436,13 @@ async function modalOrden(id){
       </select></div>
       <div><label>Mecánico</label><select id="f-mec">
         <option value="">Sin asignar</option>
+        <option value="Angel" ${o?.mecanico==='Angel'?'selected':''}>Angel</option>
         <option value="Matias" ${o?.mecanico==='Matias'?'selected':''}>Matias</option>
         <option value="Marcelo" ${o?.mecanico==='Marcelo'?'selected':''}>Marcelo</option>
-        <option value="Ángel" ${o?.mecanico==='Ángel'?'selected':''}>Ángel</option>
       </select></div>
     </div>
     <div><label>KM al ingreso</label><input id="f-km" value="${o?.kilometraje_ingreso||''}"></div>
-    <div><label>Descripción del cliente (qué le pasa)</label><textarea id="f-desc" rows="2">${o?.descripcion_cliente||''}</textarea></div>
+    <div><label>Descripción del cliente</label><textarea id="f-desc" rows="2">${o?.descripcion_cliente||''}</textarea></div>
     <div><label>Trabajos realizados</label><textarea id="f-trab" rows="3">${o?.trabajos_realizados||''}</textarea></div>
     <div><label>Observaciones internas</label><textarea id="f-obs" rows="2">${o?.observaciones||''}</textarea></div>
     <div class="grid2">
@@ -443,10 +458,10 @@ async function modalOrden(id){
 }
 
 function filtrarVehsOrden(vehs, cliId, selId){
-  const cli = cliId || document.getElementById('f-cli')?.value;
+  const cli = cliId||document.getElementById('f-cli')?.value;
   const filtrados = (vehs||[]).filter(v=>v.cliente_id===cli);
   const sel = document.getElementById('f-veh');
-  if(!sel) return;
+  if(!sel)return;
   sel.innerHTML = filtrados.length
     ? filtrados.map(v=>`<option value="${v.id}" ${v.id===selId?'selected':''}>${v.patente} - ${v.marca} ${v.modelo}</option>`).join('')
     : '<option value="">Sin vehículos para este cliente</option>';
@@ -458,49 +473,31 @@ async function guardarOrden(id){
   if(!cliId||!vehId){alert('Seleccioná cliente y vehículo');return;}
   const {data:cls} = await supa.from('clientes').select('nombre,apellido').eq('id',cliId).single();
   const {data:veh} = await supa.from('vehiculos').select('patente,marca,modelo').eq('id',vehId).single();
-  const data = {
-    cliente_id:cliId, vehiculo_id:vehId,
-    cliente_nombre:`${cls?.nombre} ${cls?.apellido}`,
-    vehiculo_patente:veh?.patente, vehiculo_marca:veh?.marca, vehiculo_modelo:veh?.modelo,
-    prioridad:document.getElementById('f-pri').value,
-    estado:document.getElementById('f-est').value,
-    mecanico:document.getElementById('f-mec').value,
-    kilometraje_ingreso:document.getElementById('f-km').value,
-    descripcion_cliente:document.getElementById('f-desc').value,
-    trabajos_realizados:document.getElementById('f-trab').value,
-    observaciones:document.getElementById('f-obs').value,
-    fecha_ingreso:document.getElementById('f-fing').value,
-    fecha_entrega:document.getElementById('f-fent').value,
-    total:Number(document.getElementById('f-total').value)||0,
-  };
-  if(id){ await supa.from('ordenes').update(data).eq('id',id); }
-  else { await supa.from('ordenes').insert(data); }
+  const data={cliente_id:cliId,vehiculo_id:vehId,cliente_nombre:`${cls?.nombre} ${cls?.apellido}`,vehiculo_patente:veh?.patente,vehiculo_marca:veh?.marca,vehiculo_modelo:veh?.modelo,prioridad:document.getElementById('f-pri').value,estado:document.getElementById('f-est').value,mecanico:document.getElementById('f-mec').value,kilometraje_ingreso:document.getElementById('f-km').value,descripcion_cliente:document.getElementById('f-desc').value,trabajos_realizados:document.getElementById('f-trab').value,observaciones:document.getElementById('f-obs').value,fecha_ingreso:document.getElementById('f-fing').value,fecha_entrega:document.getElementById('f-fent').value,total:Number(document.getElementById('f-total').value)||0};
+  if(id){await supa.from('ordenes').update(data).eq('id',id);}
+  else{await supa.from('ordenes').insert(data);}
   cerrarModal(); await renderOrdenes();
 }
 
-// ── PRIORIDADES ───────────────────────────────────────────────────────────────
 async function renderPrioridades(){
   const {data} = await supa.from('ordenes').select('*').not('estado','in','(entregado,cancelado)').order('created_at');
   const urgentes = data?.filter(o=>o.prioridad==='urgente')||[];
   const normales = data?.filter(o=>o.prioridad==='normal')||[];
   const espera = data?.filter(o=>o.prioridad==='puede_esperar')||[];
-
   function col(titulo, color, items){
     return `<div class="priority-col">
       <div class="priority-col-title" style="color:${color}">${titulo} <span style="background:${color}20;color:${color};padding:2px 8px;border-radius:20px;font-size:11px">${items.length}</span></div>
-      ${items.length?items.map(o=>`
-        <div class="orden-card" onclick="modalOrden('${o.id}')">
-          <div class="orden-card-num">#${o.numero} · ${o.mecanico||'Sin asignar'}</div>
-          <div class="orden-card-cliente">${o.cliente_nombre||'-'}</div>
-          <div class="orden-card-trabajo">${o.vehiculo_patente||''} ${o.vehiculo_marca||''} ${o.vehiculo_modelo||''}</div>
-          <div style="margin-top:6px;display:flex;gap:6px">${badgeEstado(o.estado)}</div>
-        </div>`).join(''):'<div style="text-align:center;color:var(--text2);font-size:12px;padding:20px">Sin órdenes</div>'}
+      ${items.length?items.map(o=>`<div class="orden-card" onclick="modalOrden('${o.id}')">
+        <div class="orden-card-num">#${o.numero} · ${o.mecanico||'Sin asignar'}</div>
+        <div class="orden-card-cliente">${o.cliente_nombre||'-'}</div>
+        <div class="orden-card-trabajo">${o.vehiculo_patente||''} ${o.vehiculo_marca||''} ${o.vehiculo_modelo||''}</div>
+        <div style="margin-top:6px">${badgeEstado(o.estado)}</div>
+      </div>`).join(''):'<div style="text-align:center;color:var(--text2);font-size:12px;padding:20px">Sin órdenes</div>'}
     </div>`;
   }
-
   document.getElementById('content').innerHTML = `
     <div style="margin-bottom:16px;display:flex;justify-content:space-between;align-items:center">
-      <p style="color:var(--text2);font-size:13px">Hacé clic en cualquier orden para editarla o cambiar su estado</p>
+      <p style="color:var(--text2);font-size:13px">Hacé clic en cualquier orden para editarla</p>
       <button class="btn btn-primary" onclick="modalOrden()"><i class="ti ti-plus"></i> Nueva orden</button>
     </div>
     <div class="priority-bar">
@@ -511,7 +508,6 @@ async function renderPrioridades(){
   window._ordenes = data||[];
 }
 
-// ── TURNOS ────────────────────────────────────────────────────────────────────
 async function renderTurnos(){
   const {data} = await supa.from('turnos').select('*').order('fecha').order('hora');
   const proximos = data?.filter(t=>t.fecha>=hoy())||[];
@@ -521,30 +517,21 @@ async function renderTurnos(){
   </div>
   <div class="card" style="padding:0">
   ${proximos.length?`<table><thead><tr><th>Fecha</th><th>Hora</th><th>Cliente</th><th>Trabajo</th><th>Mecánico</th><th>Duración</th><th>Estado</th><th></th></tr></thead><tbody>
-  ${proximos.map(t=>`<tr>
-    <td><strong>${fmtFecha(t.fecha)}</strong></td>
-    <td>${t.hora?.slice(0,5)}</td>
-    <td>${t.cliente_nombre||'-'}</td>
-    <td>${t.tipo_trabajo}</td>
-    <td>${t.mecanico||'-'}</td>
-    <td>${t.duracion_estimada} min</td>
-    <td>${badgeEstado(t.estado)}</td>
+  ${proximos.map(t=>`<tr><td><strong>${fmtFecha(t.fecha)}</strong></td><td>${t.hora?.slice(0,5)}</td><td>${t.cliente_nombre||'-'}</td><td>${t.tipo_trabajo}</td><td>${t.mecanico||'-'}</td><td>${t.duracion_estimada} min</td><td>${badgeEstado(t.estado)}</td>
     <td style="display:flex;gap:4px">
       <button class="btn btn-sm" onclick="modalTurno('${t.id}')"><i class="ti ti-edit"></i></button>
       <button class="btn btn-sm btn-danger" onclick="eliminarTurno('${t.id}')"><i class="ti ti-trash"></i></button>
-    </td></tr>`).join('')}
-  </tbody></table>`:'<div class="empty"><i class="ti ti-calendar-off"></i><p>No hay turnos próximos</p></div>'}
+    </td></tr>`).join('')}</tbody></table>`:'<div class="empty"><i class="ti ti-calendar-off"></i><p>No hay turnos próximos</p></div>'}
   </div>`;
   window._turnos = data||[];
 }
 
 async function modalTurno(id){
   const {data:cls} = await supa.from('clientes').select('id,nombre,apellido').order('nombre');
-  const t = id ? (window._turnos||[]).find(x=>x.id===id) : {};
+  const t = id?(window._turnos||[]).find(x=>x.id===id):{};
   abrirModal(`
     <div class="modal-title"><span>${id?'Editar turno':'Nuevo turno'}</span><button class="btn btn-sm" onclick="cerrarModal()"><i class="ti ti-x"></i></button></div>
-    <div><label>Cliente</label><select id="f-cli-t">
-      <option value="">Sin cliente registrado</option>
+    <div><label>Cliente</label><select id="f-cli-t"><option value="">Sin cliente registrado</option>
       ${cls?.map(c=>`<option value="${c.id}" data-nombre="${c.nombre} ${c.apellido}" ${t?.cliente_id===c.id?'selected':''}>${c.nombre} ${c.apellido}</option>`).join('')}
     </select></div>
     <div class="grid2">
@@ -558,9 +545,9 @@ async function modalTurno(id){
     <div class="grid2">
       <div><label>Mecánico</label><select id="f-mec-t">
         <option value="">Sin asignar</option>
+        <option value="Angel" ${t?.mecanico==='Angel'?'selected':''}>Angel</option>
         <option value="Matias" ${t?.mecanico==='Matias'?'selected':''}>Matias</option>
         <option value="Marcelo" ${t?.mecanico==='Marcelo'?'selected':''}>Marcelo</option>
-        <option value="Ángel" ${t?.mecanico==='Ángel'?'selected':''}>Ángel</option>
       </select></div>
       <div><label>Estado</label><select id="f-est-t">
         <option value="pendiente" ${t?.estado==='pendiente'?'selected':''}>Pendiente</option>
@@ -578,31 +565,19 @@ async function modalTurno(id){
 
 async function guardarTurno(id){
   const cliSel = document.getElementById('f-cli-t');
-  const cliId = cliSel.value;
-  const cliNombre = cliSel.options[cliSel.selectedIndex]?.dataset?.nombre||'';
-  const data = {
-    cliente_id:cliId||null, cliente_nombre:cliNombre,
-    fecha:document.getElementById('f-fecha-t').value,
-    hora:document.getElementById('f-hora-t').value,
-    tipo_trabajo:document.getElementById('f-tipo-t').value.trim(),
-    duracion_estimada:Number(document.getElementById('f-dur-t').value)||60,
-    mecanico:document.getElementById('f-mec-t').value,
-    estado:document.getElementById('f-est-t').value,
-    observaciones:document.getElementById('f-obs-t').value,
-  };
+  const data={cliente_id:cliSel.value||null,cliente_nombre:cliSel.options[cliSel.selectedIndex]?.dataset?.nombre||'',fecha:document.getElementById('f-fecha-t').value,hora:document.getElementById('f-hora-t').value,tipo_trabajo:document.getElementById('f-tipo-t').value.trim(),duracion_estimada:Number(document.getElementById('f-dur-t').value)||60,mecanico:document.getElementById('f-mec-t').value,estado:document.getElementById('f-est-t').value,observaciones:document.getElementById('f-obs-t').value};
   if(!data.fecha||!data.hora||!data.tipo_trabajo){alert('Completá fecha, hora y tipo de trabajo');return;}
-  if(id){ await supa.from('turnos').update(data).eq('id',id); }
-  else { await supa.from('turnos').insert(data); }
+  if(id){await supa.from('turnos').update(data).eq('id',id);}
+  else{await supa.from('turnos').insert(data);}
   cerrarModal(); await renderTurnos();
 }
 
 async function eliminarTurno(id){
-  if(!confirm('¿Eliminar este turno?')) return;
+  if(!confirm('¿Eliminar este turno?'))return;
   await supa.from('turnos').delete().eq('id',id);
   await renderTurnos();
 }
 
-// ── PRECIOS ───────────────────────────────────────────────────────────────────
 async function renderPrecios(){
   const {data} = await supa.from('precios').select('*').order('descripcion');
   document.getElementById('content').innerHTML = `
@@ -611,22 +586,17 @@ async function renderPrecios(){
   </div>
   <div class="card" style="padding:0">
   ${data?.length?`<table><thead><tr><th>Descripción</th><th>Categoría</th><th>Precio contado</th><th>Precio tarjeta</th><th></th></tr></thead><tbody>
-  ${data.map(p=>`<tr>
-    <td><strong>${p.descripcion}</strong></td>
-    <td><span class="badge badge-gray">${p.categoria||'mano_de_obra'}</span></td>
-    <td class="green"><strong>${fmt(p.precio_contado)}</strong></td>
-    <td class="blue">${fmt(p.precio_tarjeta)}</td>
+  ${data.map(p=>`<tr><td><strong>${p.descripcion}</strong></td><td><span class="badge badge-gray">${p.categoria||'mano_de_obra'}</span></td><td class="green"><strong>${fmt(p.precio_contado)}</strong></td><td class="blue">${fmt(p.precio_tarjeta)}</td>
     <td style="display:flex;gap:4px">
       <button class="btn btn-sm" onclick="modalPrecio('${p.id}')"><i class="ti ti-edit"></i></button>
       <button class="btn btn-sm btn-danger" onclick="eliminarPrecio('${p.id}')"><i class="ti ti-trash"></i></button>
-    </td></tr>`).join('')}
-  </tbody></table>`:'<div class="empty"><i class="ti ti-tags"></i><p>No hay precios cargados. ¡Agregá el primero!</p></div>'}
+    </td></tr>`).join('')}</tbody></table>`:'<div class="empty"><i class="ti ti-tags"></i><p>No hay precios cargados</p></div>'}
   </div>`;
   window._precios = data||[];
 }
 
 function modalPrecio(id){
-  const p = id ? (window._precios||[]).find(x=>x.id===id) : {};
+  const p = id?(window._precios||[]).find(x=>x.id===id):{};
   abrirModal(`
     <div class="modal-title"><span>${id?'Editar precio':'Nuevo precio'}</span><button class="btn btn-sm" onclick="cerrarModal()"><i class="ti ti-x"></i></button></div>
     <div><label>Descripción *</label><input id="f-desc-p" value="${p?.descripcion||''}" placeholder="Ej: Cambio de aceite y filtro"></div>
@@ -638,7 +608,6 @@ function modalPrecio(id){
       <div><label>Precio contado $</label><input type="number" id="f-cont-p" value="${p?.precio_contado||0}"></div>
       <div><label>Precio tarjeta $</label><input type="number" id="f-tarj-p" value="${p?.precio_tarjeta||0}"></div>
     </div>
-    <p style="font-size:11px;color:var(--text2);margin-top:8px">Tip: cuando haya aumentos, actualizás acá y se refleja en todos los presupuestos nuevos.</p>
     <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:20px">
       <button class="btn" onclick="cerrarModal()">Cancelar</button>
       <button class="btn btn-primary" onclick="guardarPrecio('${id||''}')">Guardar</button>
@@ -646,25 +615,19 @@ function modalPrecio(id){
 }
 
 async function guardarPrecio(id){
-  const data = {
-    descripcion:document.getElementById('f-desc-p').value.trim(),
-    categoria:document.getElementById('f-cat-p').value,
-    precio_contado:Number(document.getElementById('f-cont-p').value)||0,
-    precio_tarjeta:Number(document.getElementById('f-tarj-p').value)||0,
-  };
+  const data={descripcion:document.getElementById('f-desc-p').value.trim(),categoria:document.getElementById('f-cat-p').value,precio_contado:Number(document.getElementById('f-cont-p').value)||0,precio_tarjeta:Number(document.getElementById('f-tarj-p').value)||0};
   if(!data.descripcion){alert('Ingresá una descripción');return;}
-  if(id){ await supa.from('precios').update(data).eq('id',id); }
-  else { await supa.from('precios').insert(data); }
+  if(id){await supa.from('precios').update(data).eq('id',id);}
+  else{await supa.from('precios').insert(data);}
   cerrarModal(); await renderPrecios();
 }
 
 async function eliminarPrecio(id){
-  if(!confirm('¿Eliminar este precio?')) return;
+  if(!confirm('¿Eliminar este precio?'))return;
   await supa.from('precios').delete().eq('id',id);
   await renderPrecios();
 }
 
-// ── PRESUPUESTOS ──────────────────────────────────────────────────────────────
 async function renderPresupuestos(){
   const {data} = await supa.from('presupuestos').select('*').order('created_at',{ascending:false});
   document.getElementById('content').innerHTML = `
@@ -673,20 +636,12 @@ async function renderPresupuestos(){
   </div>
   <div class="card" style="padding:0">
   ${data?.length?`<table><thead><tr><th>#</th><th>Cliente</th><th>Fecha</th><th>Tipo</th><th>Estado</th><th>Total</th><th></th></tr></thead><tbody>
-  ${data.map(p=>{
-    const estadoBadge = p.estado==='aprobado'?'badge-green':p.estado==='rechazado'?'badge-red':'badge-amber';
-    return `<tr>
-      <td><strong>#${p.numero}</strong></td>
-      <td>${p.cliente_nombre||'-'}</td>
-      <td>${fmtFecha(p.fecha)}</td>
-      <td><span class="badge badge-gray">${p.tipo_precio==='tarjeta'?'Tarjeta':'Contado'}</span></td>
-      <td><span class="badge ${estadoBadge}">${p.estado}</span></td>
-      <td><strong>${fmt(p.total)}</strong></td>
-      <td style="display:flex;gap:4px">
-        <button class="btn btn-sm" onclick="verPresupuesto('${p.id}')"><i class="ti ti-eye"></i></button>
-        <button class="btn btn-sm btn-danger" onclick="eliminarPresupuesto('${p.id}')"><i class="ti ti-trash"></i></button>
-      </td></tr>`;}).join('')}
-  </tbody></table>`:'<div class="empty"><i class="ti ti-calculator"></i><p>No hay presupuestos</p></div>'}
+  ${data.map(p=>{const eb=p.estado==='aprobado'?'badge-green':p.estado==='rechazado'?'badge-red':'badge-amber';
+  return `<tr><td><strong>#${p.numero}</strong></td><td>${p.cliente_nombre||'-'}</td><td>${fmtFecha(p.fecha)}</td><td><span class="badge badge-gray">${p.tipo_precio==='tarjeta'?'Tarjeta':'Contado'}</span></td><td><span class="badge ${eb}">${p.estado}</span></td><td><strong>${fmt(p.total)}</strong></td>
+    <td style="display:flex;gap:4px">
+      <button class="btn btn-sm" onclick="verPresupuesto('${p.id}')"><i class="ti ti-eye"></i></button>
+      <button class="btn btn-sm btn-danger" onclick="eliminarPresupuesto('${p.id}')"><i class="ti ti-trash"></i></button>
+    </td></tr>`;}).join('')}</tbody></table>`:'<div class="empty"><i class="ti ti-calculator"></i><p>No hay presupuestos</p></div>'}
   </div>`;
   window._presupuestos = data||[];
 }
@@ -697,10 +652,7 @@ async function modalPresupuesto(){
     supa.from('vehiculos').select('id,patente,marca,modelo,cliente_id'),
     supa.from('precios').select('*').order('descripcion')
   ]);
-  window._presup_items = [];
-  window._presup_precios = precios||[];
-  window._presup_vehs = vehs||[];
-
+  window._presup_items=[];
   abrirModal(`
     <div class="modal-title"><span>Nuevo presupuesto</span><button class="btn btn-sm" onclick="cerrarModal()"><i class="ti ti-x"></i></button></div>
     <div class="grid2">
@@ -711,16 +663,13 @@ async function modalPresupuesto(){
       <div><label>Vehículo</label><select id="fp-veh"><option value="">Seleccioná cliente</option></select></div>
     </div>
     <div class="grid2">
-      <div><label>Tipo de precio</label><select id="fp-tipo" onchange="actualizarItemsPres()">
-        <option value="contado">Contado</option><option value="tarjeta">Tarjeta</option>
-      </select></div>
+      <div><label>Tipo de precio</label><select id="fp-tipo"><option value="contado">Contado</option><option value="tarjeta">Tarjeta</option></select></div>
       <div><label>Observaciones</label><input id="fp-obs" placeholder="Opcional"></div>
     </div>
     <div class="sep"></div>
-    <div class="seccion-title">Ítems del presupuesto</div>
+    <div class="seccion-title">Ítems</div>
     <div style="display:flex;gap:8px;margin-bottom:10px">
-      <select id="fp-item-sel" style="flex:1">
-        <option value="">Seleccioná un servicio de la lista...</option>
+      <select id="fp-item-sel" style="flex:1"><option value="">Seleccioná un servicio...</option>
         ${precios?.map(p=>`<option value="${p.id}" data-cont="${p.precio_contado}" data-tarj="${p.precio_tarjeta}">${p.descripcion}</option>`).join('')}
       </select>
       <button class="btn btn-primary btn-sm" onclick="agregarItemPres()"><i class="ti ti-plus"></i> Agregar</button>
@@ -737,24 +686,22 @@ function filtrarVehsPres(vehs){
   const cliId = document.getElementById('fp-cli').value;
   const filtrados = (vehs||[]).filter(v=>v.cliente_id===cliId);
   const sel = document.getElementById('fp-veh');
-  sel.innerHTML = filtrados.length
-    ? filtrados.map(v=>`<option value="${v.id}">${v.patente} - ${v.marca} ${v.modelo}</option>`).join('')
-    : '<option value="">Sin vehículos</option>';
+  sel.innerHTML = filtrados.length?filtrados.map(v=>`<option value="${v.id}">${v.patente} - ${v.marca} ${v.modelo}</option>`).join(''):'<option value="">Sin vehículos</option>';
 }
 
 function agregarItemPres(){
   const sel = document.getElementById('fp-item-sel');
   const opt = sel.options[sel.selectedIndex];
-  if(!opt.value) return;
+  if(!opt.value)return;
   const tipo = document.getElementById('fp-tipo').value;
-  const precio = tipo==='tarjeta' ? Number(opt.dataset.tarj) : Number(opt.dataset.cont);
-  window._presup_items.push({desc:opt.text, precio, cantidad:1});
+  const precio = tipo==='tarjeta'?Number(opt.dataset.tarj):Number(opt.dataset.cont);
+  window._presup_items.push({desc:opt.text,precio,cantidad:1});
   renderItemsPres();
 }
 
 function renderItemsPres(){
   const lista = document.getElementById('fp-items-lista');
-  if(!lista) return;
+  if(!lista)return;
   lista.innerHTML = window._presup_items.map((it,i)=>`
     <div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border)">
       <div style="flex:1;font-size:13px">${it.desc}</div>
@@ -773,23 +720,15 @@ async function guardarPresupuesto(){
   const cliNombre = cliSel.options[cliSel.selectedIndex]?.dataset?.nombre||'';
   if(!cliId){alert('Seleccioná un cliente');return;}
   const total = window._presup_items.reduce((a,b)=>a+b.precio*b.cantidad,0);
-  const {data:pres} = await supa.from('presupuestos').insert({
-    cliente_id:cliId, cliente_nombre:cliNombre,
-    vehiculo_id:document.getElementById('fp-veh').value||null,
-    tipo_precio:document.getElementById('fp-tipo').value,
-    observaciones:document.getElementById('fp-obs').value,
-    total, estado:'pendiente', fecha:hoy()
-  }).select().single();
-  if(pres && window._presup_items.length){
-    await supa.from('presupuesto_items').insert(
-      window._presup_items.map(it=>({presupuesto_id:pres.id,descripcion:it.desc,cantidad:it.cantidad,precio_unitario:it.precio,subtotal:it.precio*it.cantidad}))
-    );
+  const {data:pres} = await supa.from('presupuestos').insert({cliente_id:cliId,cliente_nombre:cliNombre,vehiculo_id:document.getElementById('fp-veh').value||null,tipo_precio:document.getElementById('fp-tipo').value,observaciones:document.getElementById('fp-obs').value,total,estado:'pendiente',fecha:hoy()}).select().single();
+  if(pres&&window._presup_items.length){
+    await supa.from('presupuesto_items').insert(window._presup_items.map(it=>({presupuesto_id:pres.id,descripcion:it.desc,cantidad:it.cantidad,precio_unitario:it.precio,subtotal:it.precio*it.cantidad})));
   }
   cerrarModal(); await renderPresupuestos();
 }
 
 async function eliminarPresupuesto(id){
-  if(!confirm('¿Eliminar este presupuesto?')) return;
+  if(!confirm('¿Eliminar?'))return;
   await supa.from('presupuestos').delete().eq('id',id);
   await renderPresupuestos();
 }
@@ -807,11 +746,10 @@ async function verPresupuesto(id){
     ${items?.map(it=>`<tr><td>${it.descripcion}</td><td>${it.cantidad}</td><td>${fmt(it.precio_unitario)}</td><td>${fmt(it.subtotal)}</td></tr>`).join('')}
     </tbody></table>
     <div style="text-align:right;font-size:16px;font-weight:600;margin-top:12px" class="green">Total: ${fmt(p.total)}</div>
-    ${p.observaciones?`<p style="margin-top:8px;font-size:12px;color:var(--text2)">${p.observaciones}</p>`:''}
     <div class="sep"></div>
     <div style="display:flex;gap:8px;justify-content:flex-end">
       <button class="btn btn-primary" onclick="aprobarPresupuesto('${id}')"><i class="ti ti-check"></i> Aprobar</button>
-      <button class="btn btn-danger" onclick="cambiarEstadoPres('${id}','rechazado')"><i class="ti ti-x"></i> Rechazar</button>
+      <button class="btn btn-danger" onclick="rechazarPresupuesto('${id}')"><i class="ti ti-x"></i> Rechazar</button>
       <button class="btn" onclick="cerrarModal()">Cerrar</button>
     </div>`);
 }
@@ -820,17 +758,19 @@ async function aprobarPresupuesto(id){
   await supa.from('presupuestos').update({estado:'aprobado'}).eq('id',id);
   cerrarModal(); await renderPresupuestos();
 }
+async function rechazarPresupuesto(id){
+  await supa.from('presupuestos').update({estado:'rechazado'}).eq('id',id);
+  cerrarModal(); await renderPresupuestos();
+}
 
-// ── CUENTAS CORRIENTES ────────────────────────────────────────────────────────
 async function renderCuentas(){
   const {data:cls} = await supa.from('clientes').select('id,nombre,apellido').order('nombre');
   const {data:movs} = await supa.from('cuenta_corriente').select('*');
   const resumen = cls?.map(c=>{
     const mv = movs?.filter(m=>m.cliente_id===c.id)||[];
     const saldo = mv.reduce((a,m)=>m.tipo==='debito'?a+Number(m.monto):a-Number(m.monto),0);
-    return {...c, saldo, movimientos:mv.length};
+    return {...c,saldo,movimientos:mv.length};
   })||[];
-
   document.getElementById('content').innerHTML = `
   <div style="margin-bottom:20px;display:flex;justify-content:flex-end">
     <button class="btn btn-primary" onclick="modalMovimiento()"><i class="ti ti-plus"></i> Registrar movimiento</button>
@@ -840,11 +780,10 @@ async function renderCuentas(){
   ${resumen.map(c=>`<tr>
     <td><div style="font-weight:500">${c.nombre} ${c.apellido}</div></td>
     <td>${c.movimientos}</td>
-    <td><strong class="${c.saldo>0?'red':c.saldo<0?'green':''}}">${fmt(Math.abs(c.saldo))}</strong></td>
+    <td><strong class="${c.saldo>0?'red':c.saldo<0?'green':''}">${fmt(Math.abs(c.saldo))}</strong></td>
     <td>${c.saldo>0?'<span class="badge badge-red">Debe</span>':c.saldo<0?'<span class="badge badge-green">A favor</span>':'<span class="badge badge-gray">Al día</span>'}</td>
     <td><button class="btn btn-sm" onclick="verCuenta('${c.id}','${c.nombre} ${c.apellido}')"><i class="ti ti-eye"></i> Ver</button></td>
-  </tr>`).join('')}
-  </tbody></table>`:'<div class="empty"><i class="ti ti-credit-card"></i><p>Sin datos</p></div>'}
+  </tr>`).join('')}</tbody></table>`:'<div class="empty"><i class="ti ti-credit-card"></i><p>Sin datos</p></div>'}
   </div>`;
 }
 
@@ -852,15 +791,10 @@ async function verCuenta(cliId, nombre){
   const {data:movs} = await supa.from('cuenta_corriente').select('*').eq('cliente_id',cliId).order('fecha');
   const saldo = movs?.reduce((a,m)=>m.tipo==='debito'?a+Number(m.monto):a-Number(m.monto),0)||0;
   abrirModal(`
-    <div class="modal-title"><span>Cuenta corriente: ${nombre}</span><button class="btn btn-sm" onclick="cerrarModal()"><i class="ti ti-x"></i></button></div>
-    <div style="text-align:right;margin-bottom:12px;font-size:15px;font-weight:600">Saldo: <span class="${saldo>0?'red':saldo<0?'green':''}">${saldo>0?'Debe':'Saldo a favor'} ${fmt(Math.abs(saldo))}</span></div>
+    <div class="modal-title"><span>Cuenta: ${nombre}</span><button class="btn btn-sm" onclick="cerrarModal()"><i class="ti ti-x"></i></button></div>
+    <div style="text-align:right;margin-bottom:12px;font-size:15px;font-weight:600">Saldo: <span class="${saldo>0?'red':saldo<0?'green':''}">${saldo>0?'Debe':'A favor'} ${fmt(Math.abs(saldo))}</span></div>
     <table><thead><tr><th>Fecha</th><th>Concepto</th><th>Tipo</th><th>Monto</th></tr></thead><tbody>
-    ${movs?.map(m=>`<tr>
-      <td>${fmtFecha(m.fecha)}</td>
-      <td>${m.concepto}</td>
-      <td>${m.tipo==='debito'?'<span class="badge badge-red">Débito</span>':'<span class="badge badge-green">Crédito</span>'}</td>
-      <td class="${m.tipo==='debito'?'red':'green'}">${fmt(m.monto)}</td>
-    </tr>`).join('')||'<tr><td colspan="4" style="text-align:center">Sin movimientos</td></tr>'}
+    ${movs?.map(m=>`<tr><td>${fmtFecha(m.fecha)}</td><td>${m.concepto}</td><td>${m.tipo==='debito'?'<span class="badge badge-red">Débito</span>':'<span class="badge badge-green">Crédito</span>'}</td><td class="${m.tipo==='debito'?'red':'green'}">${fmt(m.monto)}</td></tr>`).join('')||'<tr><td colspan="4" style="text-align:center">Sin movimientos</td></tr>'}
     </tbody></table>
     <div style="margin-top:16px;display:flex;justify-content:flex-end;gap:8px">
       <button class="btn btn-primary" onclick="modalMovimiento('${cliId}')"><i class="ti ti-plus"></i> Nuevo movimiento</button>
@@ -872,8 +806,7 @@ async function modalMovimiento(cliIdPre){
   const {data:cls} = await supa.from('clientes').select('id,nombre,apellido').order('nombre');
   abrirModal(`
     <div class="modal-title"><span>Registrar movimiento</span><button class="btn btn-sm" onclick="cerrarModal()"><i class="ti ti-x"></i></button></div>
-    <div><label>Cliente *</label><select id="fm-cli">
-      <option value="">Seleccioná</option>
+    <div><label>Cliente *</label><select id="fm-cli"><option value="">Seleccioná</option>
       ${cls?.map(c=>`<option value="${c.id}" ${c.id===cliIdPre?'selected':''}>${c.nombre} ${c.apellido}</option>`).join('')}
     </select></div>
     <div class="grid2">
@@ -892,26 +825,17 @@ async function modalMovimiento(cliIdPre){
 }
 
 async function guardarMovimiento(){
-  const data = {
-    cliente_id:document.getElementById('fm-cli').value,
-    tipo:document.getElementById('fm-tipo').value,
-    monto:Number(document.getElementById('fm-monto').value)||0,
-    concepto:document.getElementById('fm-concepto').value.trim(),
-    fecha:document.getElementById('fm-fecha').value,
-    saldo:0,
-  };
+  const data={cliente_id:document.getElementById('fm-cli').value,tipo:document.getElementById('fm-tipo').value,monto:Number(document.getElementById('fm-monto').value)||0,concepto:document.getElementById('fm-concepto').value.trim(),fecha:document.getElementById('fm-fecha').value,saldo:0};
   if(!data.cliente_id||!data.monto||!data.concepto){alert('Completá todos los campos');return;}
   await supa.from('cuenta_corriente').insert(data);
   cerrarModal(); await renderCuentas();
 }
 
-// ── CAJA ──────────────────────────────────────────────────────────────────────
 async function renderCaja(){
   const {data} = await supa.from('caja').select('*').order('fecha',{ascending:false}).order('created_at',{ascending:false}).limit(100);
   const hoyData = data?.filter(c=>c.fecha===hoy())||[];
   const ingHoy = hoyData.filter(c=>c.tipo==='ingreso').reduce((a,b)=>a+Number(b.monto),0);
   const egrHoy = hoyData.filter(c=>c.tipo==='egreso').reduce((a,b)=>a+Number(b.monto),0);
-
   document.getElementById('content').innerHTML = `
   <div class="grid3" style="margin-bottom:20px">
     <div class="metric"><div class="metric-label">Ingresos de hoy</div><div class="metric-value green">${fmt(ingHoy)}</div></div>
@@ -924,16 +848,8 @@ async function renderCaja(){
   </div>
   <div class="card" style="padding:0">
   ${data?.length?`<table><thead><tr><th>Fecha</th><th>Tipo</th><th>Concepto</th><th>Categoría</th><th>Forma de pago</th><th>Monto</th><th></th></tr></thead><tbody>
-  ${data.map(c=>`<tr>
-    <td>${fmtFecha(c.fecha)}</td>
-    <td>${c.tipo==='ingreso'?'<span class="badge badge-green">Ingreso</span>':'<span class="badge badge-red">Egreso</span>'}</td>
-    <td>${c.concepto}</td>
-    <td>${c.categoria||'-'}</td>
-    <td>${c.forma_pago||'-'}</td>
-    <td class="${c.tipo==='ingreso'?'green':'red'}"><strong>${fmt(c.monto)}</strong></td>
-    <td><button class="btn btn-sm btn-danger" onclick="eliminarCaja('${c.id}')"><i class="ti ti-trash"></i></button></td>
-  </tr>`).join('')}
-  </tbody></table>`:'<div class="empty"><i class="ti ti-cash"></i><p>Sin movimientos</p></div>'}
+  ${data.map(c=>`<tr><td>${fmtFecha(c.fecha)}</td><td>${c.tipo==='ingreso'?'<span class="badge badge-green">Ingreso</span>':'<span class="badge badge-red">Egreso</span>'}</td><td>${c.concepto}</td><td>${c.categoria||'-'}</td><td>${c.forma_pago||'-'}</td><td class="${c.tipo==='ingreso'?'green':'red'}"><strong>${fmt(c.monto)}</strong></td>
+    <td><button class="btn btn-sm btn-danger" onclick="eliminarCaja('${c.id}')"><i class="ti ti-trash"></i></button></td></tr>`).join('')}</tbody></table>`:'<div class="empty"><i class="ti ti-cash"></i><p>Sin movimientos</p></div>'}
   </div>`;
 }
 
@@ -952,7 +868,7 @@ function modalCaja(tipo){
       </select></div>
     </div>
     <div class="grid2">
-      <div><label>Categoría</label><input id="fc-cat" placeholder="${tipo==='ingreso'?'Ej: Servicio, repuesto':'Ej: Insumos, alquiler'}"></div>
+      <div><label>Categoría</label><input id="fc-cat" placeholder="${tipo==='ingreso'?'Ej: Servicio':'Ej: Insumos'}"></div>
       <div><label>Fecha</label><input type="date" id="fc-fecha" value="${hoy()}"></div>
     </div>
     <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:20px">
@@ -962,39 +878,26 @@ function modalCaja(tipo){
 }
 
 async function guardarCaja(tipo){
-  const data = {
-    tipo, concepto:document.getElementById('fc-concepto').value.trim(),
-    monto:Number(document.getElementById('fc-monto').value)||0,
-    forma_pago:document.getElementById('fc-pago').value,
-    categoria:document.getElementById('fc-cat').value.trim(),
-    fecha:document.getElementById('fc-fecha').value,
-  };
+  const data={tipo,concepto:document.getElementById('fc-concepto').value.trim(),monto:Number(document.getElementById('fc-monto').value)||0,forma_pago:document.getElementById('fc-pago').value,categoria:document.getElementById('fc-cat').value.trim(),fecha:document.getElementById('fc-fecha').value};
   if(!data.concepto||!data.monto){alert('Completá concepto y monto');return;}
   await supa.from('caja').insert(data);
   cerrarModal(); await renderCaja();
 }
 
 async function eliminarCaja(id){
-  if(!confirm('¿Eliminar este movimiento?')) return;
+  if(!confirm('¿Eliminar este movimiento?'))return;
   await supa.from('caja').delete().eq('id',id);
   await renderCaja();
 }
 
-// ── CIERRE MENSUAL ────────────────────────────────────────────────────────────
 async function renderCierre(){
   const {data} = await supa.from('caja').select('*').order('fecha');
   const meses = [...new Set(data?.map(c=>c.fecha?.slice(0,7))||[])].sort().reverse();
   const mesSelec = meses[0]||mesActual();
-
   function renderMes(mes){
     const movs = data?.filter(c=>c.fecha?.slice(0,7)===mes)||[];
     const ing = movs.filter(c=>c.tipo==='ingreso').reduce((a,b)=>a+Number(b.monto),0);
     const egr = movs.filter(c=>c.tipo==='egreso').reduce((a,b)=>a+Number(b.monto),0);
-    const cats = {};
-    movs.forEach(m=>{
-      const k = (m.categoria||'Sin categoría')+'_'+m.tipo;
-      cats[k] = (cats[k]||0)+Number(m.monto);
-    });
     return `
       <div class="grid3" style="margin-bottom:20px">
         <div class="metric"><div class="metric-label">Total ingresos</div><div class="metric-value green">${fmt(ing)}</div></div>
@@ -1002,36 +905,25 @@ async function renderCierre(){
         <div class="metric"><div class="metric-label">Balance</div><div class="metric-value ${ing-egr>=0?'green':'red'}">${fmt(ing-egr)}</div></div>
       </div>
       <div class="grid2">
-        <div class="card">
-          <div class="seccion-title">Detalle de ingresos</div>
-          ${movs.filter(c=>c.tipo==='ingreso').map(m=>`
-            <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:13px">
-              <span>${m.concepto}</span><span class="green">${fmt(m.monto)}</span>
-            </div>`).join('')||'<p style="color:var(--text2);font-size:13px">Sin ingresos</p>'}
+        <div class="card"><div class="seccion-title">Ingresos</div>
+          ${movs.filter(c=>c.tipo==='ingreso').map(m=>`<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:13px"><span>${m.concepto}</span><span class="green">${fmt(m.monto)}</span></div>`).join('')||'<p style="color:var(--text2);font-size:13px">Sin ingresos</p>'}
         </div>
-        <div class="card">
-          <div class="seccion-title">Detalle de egresos</div>
-          ${movs.filter(c=>c.tipo==='egreso').map(m=>`
-            <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:13px">
-              <span>${m.concepto}</span><span class="red">${fmt(m.monto)}</span>
-            </div>`).join('')||'<p style="color:var(--text2);font-size:13px">Sin egresos</p>'}
+        <div class="card"><div class="seccion-title">Egresos</div>
+          ${movs.filter(c=>c.tipo==='egreso').map(m=>`<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:13px"><span>${m.concepto}</span><span class="red">${fmt(m.monto)}</span></div>`).join('')||'<p style="color:var(--text2);font-size:13px">Sin egresos</p>'}
         </div>
       </div>`;
   }
-
   document.getElementById('content').innerHTML = `
   <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px">
     <div class="seccion-title" style="margin:0">Mes:</div>
-    <select id="sel-mes" onchange="document.getElementById('cierre-contenido').innerHTML=renderMesData(this.value)" style="width:200px">
+    <select id="sel-mes" onchange="document.getElementById('cierre-contenido').innerHTML=renderMesActual(this.value)" style="width:200px">
       ${meses.map(m=>`<option value="${m}">${m}</option>`).join('')}
     </select>
   </div>
   <div id="cierre-contenido">${renderMes(mesSelec)}</div>`;
-
-  window.renderMesData = (mes) => renderMes(mes);
+  window.renderMesActual = renderMes;
 }
 
-// ── INIT ──────────────────────────────────────────────────────────────────────
 render();
 </script>
 </body>
