@@ -72,7 +72,6 @@ tr:hover td{background:#fafaf8}
 .orden-card-cliente{font-size:13px;font-weight:500}
 .orden-card-trabajo{font-size:12px;color:var(--text2);margin-top:2px}
 .seccion-title{font-size:13px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:12px}
-/* LOGIN */
 .login-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--bg)}
 .login-box{background:var(--bg2);border:1px solid var(--border);border-radius:16px;padding:40px;width:380px;max-width:96vw}
 .login-logo{text-align:center;margin-bottom:32px}
@@ -83,7 +82,6 @@ tr:hover td{background:#fafaf8}
 </head>
 <body>
 
-<!-- LOGIN -->
 <div class="login-wrap" id="login-wrap">
   <div class="login-box">
     <div class="login-logo">
@@ -91,22 +89,13 @@ tr:hover td{background:#fafaf8}
       <div class="login-logo-title">Cuarta Marcha</div>
       <div class="login-logo-sub">Taller Mecánico — Sistema de gestión</div>
     </div>
-    <div>
-      <label>Email</label>
-      <input type="email" id="login-email" placeholder="tu@email.com" onkeydown="if(event.key==='Enter')entrar()">
-    </div>
-    <div>
-      <label>Contraseña</label>
-      <input type="password" id="login-pass" placeholder="••••••••" onkeydown="if(event.key==='Enter')entrar()">
-    </div>
+    <div><label>Email</label><input type="email" id="login-email" placeholder="tu@email.com" onkeydown="if(event.key==='Enter')entrar()"></div>
+    <div><label>Contraseña</label><input type="password" id="login-pass" placeholder="••••••••" onkeydown="if(event.key==='Enter')entrar()"></div>
     <div class="login-error" id="login-error">Email o contraseña incorrectos</div>
-    <button class="btn btn-primary" style="width:100%;margin-top:20px;justify-content:center;padding:12px" onclick="entrar()">
-      <i class="ti ti-login"></i> Ingresar
-    </button>
+    <button class="btn btn-primary" style="width:100%;margin-top:20px;justify-content:center;padding:12px" onclick="entrar()"><i class="ti ti-login"></i> Ingresar</button>
   </div>
 </div>
 
-<!-- SISTEMA -->
 <div class="app" id="sistema" style="display:none">
 <div class="sidebar">
   <div class="logo">
@@ -148,7 +137,6 @@ const SUPA_URL = 'https://ejhyvfjwudeponhgawiz.supabase.co';
 const SUPA_KEY = 'sb_publishable_X_fOJC-3BhJ2ymGFB_6asQ_9T73J3GM';
 const supa = supabase.createClient(SUPA_URL, SUPA_KEY);
 
-// ── AUTH ──────────────────────────────────────────────────────────────────────
 async function entrar(){
   const email = document.getElementById('login-email').value.trim();
   const pass = document.getElementById('login-pass').value;
@@ -172,10 +160,7 @@ async function mostrarSistema(){
   render();
 }
 
-// Verificar sesión al cargar
-supa.auth.getSession().then(({data:{session}})=>{
-  if(session) mostrarSistema();
-});
+supa.auth.getSession().then(({data:{session}})=>{ if(session) mostrarSistema(); });
 
 const titles = {dashboard:'Inicio',clientes:'Clientes',vehiculos:'Vehículos',ordenes:'Órdenes de trabajo',prioridades:'Cola de prioridades',turnos:'Turnos',presupuestos:'Presupuestos',precios:'Lista de precios',cuentas:'Cuentas corrientes',caja:'Caja',cierre:'Cierre mensual'};
 let page = 'dashboard';
@@ -190,7 +175,6 @@ function ir(p, el){
 function abrirModal(html){ document.getElementById('modal-inner').innerHTML=html; document.getElementById('modal-overlay').style.display='flex'; }
 function cerrarModal(){ document.getElementById('modal-overlay').style.display='none'; }
 function cerrarModalOverlay(e){ if(e.target===document.getElementById('modal-overlay')) cerrarModal(); }
-
 function fmt(n){ return '$'+Number(n||0).toLocaleString('es-AR',{minimumFractionDigits:0}); }
 function fmtFecha(d){ if(!d)return''; const[y,m,dd]=d.split('-'); return `${dd}/${m}/${y}`; }
 function hoy(){ return new Date().toISOString().slice(0,10); }
@@ -397,9 +381,8 @@ async function renderOrdenes(){
     <td>${fmtFecha(o.fecha_ingreso)}</td><td>${o.mecanico||'-'}</td>
     <td>${badgePrioridad(o.prioridad)}</td><td>${badgeEstado(o.estado)}</td>
     <td><strong>${fmt(o.total)}</strong></td>
-    <td style="display:flex;gap:4px">
-      <button class="btn btn-sm" onclick="modalOrden('${o.id}')"><i class="ti ti-edit"></i></button>
-    </td></tr>`).join('')}</tbody></table>`:'<div class="empty"><i class="ti ti-file-off"></i><p>No hay órdenes</p></div>'}
+    <td><button class="btn btn-sm" onclick="modalOrden('${o.id}')"><i class="ti ti-edit"></i></button></td>
+  </tr>`).join('')}</tbody></table>`:'<div class="empty"><i class="ti ti-file-off"></i><p>No hay órdenes</p></div>'}
   </div>`;
   window._ordenes = data||[];
 }
@@ -578,15 +561,34 @@ async function eliminarTurno(id){
   await renderTurnos();
 }
 
+async function aplicarComisionATodos(){
+  const porc = Number(document.getElementById('porc-mp').value)||0;
+  if(!porc){alert('Ingresá un porcentaje primero');return;}
+  if(!confirm(`¿Aplicar ${porc}% de recargo a TODOS los precios de tarjeta?`))return;
+  const {data} = await supa.from('precios').select('id,precio_contado');
+  for(const p of data||[]){
+    const tarjeta = Math.round(p.precio_contado*(1+porc/100));
+    await supa.from('precios').update({precio_tarjeta:tarjeta}).eq('id',p.id);
+  }
+  await renderPrecios();
+}
+
 async function renderPrecios(){
   const {data} = await supa.from('precios').select('*').order('descripcion');
   document.getElementById('content').innerHTML = `
-  <div style="display:flex;justify-content:flex-end;margin-bottom:20px">
+  <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;flex-wrap:wrap">
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:10px 16px;display:flex;align-items:center;gap:10px;flex:1">
+      <i class="ti ti-credit-card" style="color:var(--azul);font-size:18px"></i>
+      <span style="font-size:13px;font-weight:500">Comisión MercadoPago:</span>
+      <input type="number" id="porc-mp" placeholder="Ej: 6.99" style="width:100px">
+      <span style="font-size:13px;color:var(--text2)">%</span>
+      <button class="btn btn-sm" style="background:#009ee3;color:#fff;border-color:#009ee3" onclick="aplicarComisionATodos()"><i class="ti ti-check"></i> Aplicar a todos</button>
+    </div>
     <button class="btn btn-primary" onclick="modalPrecio()"><i class="ti ti-plus"></i> Nuevo precio</button>
   </div>
   <div class="card" style="padding:0">
-  ${data?.length?`<table><thead><tr><th>Descripción</th><th>Categoría</th>class="green"><strong>${fmt(p.precio_contado)}</strong></td><td><span class="badge badge-blue">${p.horas_trabajo||0}h</span></td><td class="blue precio-tarjeta"><th></th></tr></thead><tbody>
-  ${data.map(p=>`<tr><td><strong>${p.descripcion}</strong></td><td><span class="badge badge-gray">${p.categoria||'mano_de_obra'}</span></td><td class="green"><strong>${fmt(p.precio_contado)}</strong></td><td class="blue">${fmt(p.precio_tarjeta)}</td>
+  ${data?.length?`<table><thead><tr><th>Descripción</th><th>Categoría</th><th>Hs. trabajo</th><th>Precio contado</th><th>Precio tarjeta</th><th></th></tr></thead><tbody>
+  ${data.map(p=>`<tr><td><strong>${p.descripcion}</strong></td><td><span class="badge badge-gray">${p.categoria||'mano_de_obra'}</span></td><td><span class="badge badge-blue">${p.horas_trabajo||0}h</span></td><td class="green"><strong>${fmt(p.precio_contado)}</strong></td><td class="blue">${fmt(p.precio_tarjeta)}</td>
     <td style="display:flex;gap:4px">
       <button class="btn btn-sm" onclick="modalPrecio('${p.id}')"><i class="ti ti-edit"></i></button>
       <button class="btn btn-sm btn-danger" onclick="eliminarPrecio('${p.id}')"><i class="ti ti-trash"></i></button>
@@ -600,10 +602,13 @@ function modalPrecio(id){
   abrirModal(`
     <div class="modal-title"><span>${id?'Editar precio':'Nuevo precio'}</span><button class="btn btn-sm" onclick="cerrarModal()"><i class="ti ti-x"></i></button></div>
     <div><label>Descripción *</label><input id="f-desc-p" value="${p?.descripcion||''}" placeholder="Ej: Cambio de aceite y filtro"></div>
-    <div><label>Categoría</label><select id="f-cat-p">
-      <option value="mano_de_obra" ${p?.categoria==='mano_de_obra'?'selected':''}>Mano de obra</option>
-      <option value="servicio" ${p?.categoria==='servicio'?'selected':''}>Servicio</option>
-    </select></div>
+    <div class="grid2">
+      <div><label>Categoría</label><select id="f-cat-p">
+        <option value="mano_de_obra" ${p?.categoria==='mano_de_obra'?'selected':''}>Mano de obra</option>
+        <option value="servicio" ${p?.categoria==='servicio'?'selected':''}>Servicio</option>
+      </select></div>
+      <div><label>Horas de trabajo</label><input type="number" id="f-hs-p" value="${p?.horas_trabajo||0}" step="0.5"></div>
+    </div>
     <div class="grid2">
       <div><label>Precio contado $</label><input type="number" id="f-cont-p" value="${p?.precio_contado||0}"></div>
       <div><label>Precio tarjeta $</label><input type="number" id="f-tarj-p" value="${p?.precio_tarjeta||0}"></div>
@@ -615,7 +620,7 @@ function modalPrecio(id){
 }
 
 async function guardarPrecio(id){
-  const data={descripcion:document.getElementById('f-desc-p').value.trim(),categoria:document.getElementById('f-cat-p').value,precio_contado:Number(document.getElementById('f-cont-p').value)||0,precio_tarjeta:Number(document.getElementById('f-tarj-p').value)||0};
+  const data={descripcion:document.getElementById('f-desc-p').value.trim(),categoria:document.getElementById('f-cat-p').value,horas_trabajo:Number(document.getElementById('f-hs-p').value)||0,precio_contado:Number(document.getElementById('f-cont-p').value)||0,precio_tarjeta:Number(document.getElementById('f-tarj-p').value)||0};
   if(!data.descripcion){alert('Ingresá una descripción');return;}
   if(id){await supa.from('precios').update(data).eq('id',id);}
   else{await supa.from('precios').insert(data);}
@@ -670,7 +675,7 @@ async function modalPresupuesto(){
     <div class="seccion-title">Ítems</div>
     <div style="display:flex;gap:8px;margin-bottom:10px">
       <select id="fp-item-sel" style="flex:1"><option value="">Seleccioná un servicio...</option>
-        ${precios?.map(p=>`<option value="${p.id}" data-cont="${p.precio_contado}" data-tarj="${p.precio_tarjeta}">${p.descripcion}</option>`).join('')}
+        ${precios?.map(p=>`<option value="${p.id}" data-cont="${p.precio_contado}" data-tarj="${p.precio_tarjeta}" data-hs="${p.horas_trabajo||0}">${p.descripcion} (${p.horas_trabajo||0}h)</option>`).join('')}
       </select>
       <button class="btn btn-primary btn-sm" onclick="agregarItemPres()"><i class="ti ti-plus"></i> Agregar</button>
     </div>
