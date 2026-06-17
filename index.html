@@ -923,6 +923,9 @@ async function renderCuentas(){
 async function verCuenta(cliId, nombre){
   const {data:movs} = await supa.from('cuenta_corriente').select('*').eq('cliente_id',cliId).order('fecha');
   const saldo = movs?.reduce((a,m)=>m.tipo==='debito'?a+Number(m.monto):a-Number(m.monto),0)||0;
+  window._movsCuenta = movs||[];
+  window._cliIdCuenta = cliId;
+  window._cliNombreCuenta = nombre;
   abrirModal(`
     <div class="modal-title"><span>Cuenta: ${nombre}</span><button class="btn btn-sm" onclick="cerrarModal()"><i class="ti ti-x"></i></button></div>
     <div style="text-align:right;margin-bottom:12px;font-size:15px;font-weight:600">Saldo: <span class="${saldo>0?'red':saldo<0?'green':''}">${saldo>0?'Debe':'A favor'} ${fmt(Math.abs(saldo))}</span></div>
@@ -932,7 +935,7 @@ async function verCuenta(cliId, nombre){
       <td>${m.concepto}</td>
       <td>${m.tipo==='debito'?'<span class="badge badge-red">Débito</span>':'<span class="badge badge-green">Crédito</span>'}</td>
       <td class="${m.tipo==='debito'?'red':'green'}">${fmt(m.monto)}</td>
-      <td>${m.tipo==='credito'?`<button class="btn btn-sm" onclick="generarReciboPDF('${cliId}','${nombre}','${m.id}','${m.monto}','${m.concepto}','${m.fecha}')"><i class="ti ti-file-text"></i> Recibo</button>`:''}
+      <td>${m.tipo==='credito'?`<button class="btn btn-sm" onclick="generarReciboPDF('${m.id}')"><i class="ti ti-file-text"></i> Recibo</button>`:''}
       </td>
     </tr>`).join('')||'<tr><td colspan="5" style="text-align:center">Sin movimientos</td></tr>'}
     </tbody></table>
@@ -942,13 +945,21 @@ async function verCuenta(cliId, nombre){
     </div>`);
 }
 
-async function generarReciboPDF(cliId, nombre, movId, monto, concepto, fecha){
+async function generarReciboPDF(movId){
+  const movs = window._movsCuenta||[];
+  const cliId = window._cliIdCuenta;
+  const nombre = window._cliNombreCuenta;
+  const mov = movs.find(m=>m.id===movId);
+  if(!mov) return;
+  const monto = mov.monto;
+  const concepto = mov.concepto;
+  const fecha = mov.fecha;
+
   const {data:cli} = await supa.from('clientes').select('*').eq('id',cliId).single();
-  const {data:movs} = await supa.from('cuenta_corriente').select('*').eq('cliente_id',cliId).order('fecha');
-  
+
   // Calcular saldo anterior y posterior
-  const idx = movs?.findIndex(m=>m.id===movId)||0;
-  const saldoAnterior = movs?.slice(0,idx).reduce((a,m)=>m.tipo==='debito'?a+Number(m.monto):a-Number(m.monto),0)||0;
+  const idx = movs.findIndex(m=>m.id===movId);
+  const saldoAnterior = movs.slice(0,idx).reduce((a,m)=>m.tipo==='debito'?a+Number(m.monto):a-Number(m.monto),0);
   const saldoPosterior = saldoAnterior - Number(monto);
   
   const {jsPDF} = window.jspdf;
