@@ -364,16 +364,16 @@ function modalCliente(id){
   abrirModal(`
     <div class="modal-title"><span>${id?'Editar cliente':'Nuevo cliente'}</span><button class="btn btn-sm" onclick="cerrarModal()"><i class="ti ti-x"></i></button></div>
     <div class="grid2">
-      <div><label>Nombre *</label><input id="f-nombre" value="${c?.nombre||''}"></div>
-      <div><label>Apellido *</label><input id="f-apellido" value="${c?.apellido||''}"></div>
+      <div><label>Nombre *</label><input id="f-nombre" value="${c?.nombre||''}" placeholder="Requerido"></div>
+      <div><label>Teléfono *</label><input id="f-tel" value="${c?.telefono||''}" placeholder="Requerido"></div>
     </div>
     <div class="grid2">
-      <div><label>DNI</label><input id="f-dni" value="${c?.dni||''}"></div>
-      <div><label>Teléfono *</label><input id="f-tel" value="${c?.telefono||''}"></div>
+      <div><label>Apellido</label><input id="f-apellido" value="${c?.apellido||''}" placeholder="Opcional"></div>
+      <div><label>DNI</label><input id="f-dni" value="${c?.dni||''}" placeholder="Opcional"></div>
     </div>
     <div class="grid2">
-      <div><label>Email</label><input id="f-email" value="${c?.email||''}"></div>
-      <div><label>Dirección</label><input id="f-dir" value="${c?.direccion||''}"></div>
+      <div><label>Email</label><input id="f-email" value="${c?.email||''}" placeholder="Opcional"></div>
+      <div><label>Dirección</label><input id="f-dir" value="${c?.direccion||''}" placeholder="Opcional"></div>
     </div>
     <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:20px">
       <button class="btn" onclick="cerrarModal()">Cancelar</button>
@@ -383,7 +383,7 @@ function modalCliente(id){
 
 async function guardarCliente(id){
   const data={nombre:document.getElementById('f-nombre').value.trim(),apellido:document.getElementById('f-apellido').value.trim(),dni:document.getElementById('f-dni').value.trim(),telefono:document.getElementById('f-tel').value.trim(),email:document.getElementById('f-email').value.trim(),direccion:document.getElementById('f-dir').value.trim()};
-  if(!data.nombre||!data.apellido||!data.telefono){alert('Completá nombre, apellido y teléfono');return;}
+  if(!data.nombre||!data.telefono){alert('Completá nombre y teléfono');return;}
   if(id){await supa.from('clientes').update(data).eq('id',id);}
   else{await supa.from('clientes').insert(data);}
   cerrarModal(); await renderClientes();
