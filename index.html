@@ -86,7 +86,7 @@ tr:hover td{background:#fafaf8}
 <div class="login-wrap" id="login-wrap">
   <div class="login-box">
     <div class="login-logo">
-      <div style="font-size:40px;color:var(--verde)"><i class="ti ti-tool"></i></div>
+      <div id="login-logo-wrap" style="font-size:40px;color:var(--verde)"><i class="ti ti-tool"></i></div>
       <div class="login-logo-title">Cuarta Marcha</div>
       <div class="login-logo-sub">Taller Mecánico — Sistema de gestión</div>
     </div>
@@ -100,8 +100,13 @@ tr:hover td{background:#fafaf8}
 <div class="app" id="sistema" style="display:none">
 <div class="sidebar">
   <div class="logo">
-    <div class="logo-title"><i class="ti ti-tool"></i> Cuarta Marcha</div>
-    <div class="logo-sub">Taller Mecánico</div>
+    <div style="display:flex;align-items:center;gap:10px">
+      <img id="sidebar-logo-img" src="" alt="" style="height:40px;width:auto;display:none;border-radius:6px">
+      <div>
+        <div class="logo-title"><i class="ti ti-tool" id="sidebar-logo-icon"></i> Cuarta Marcha</div>
+        <div class="logo-sub">Taller Mecánico</div>
+      </div>
+    </div>
   </div>
   <div class="nav">
     <button class="nav-item active" onclick="ir('dashboard',this)"><i class="ti ti-layout-dashboard"></i> Inicio</button>
@@ -138,6 +143,8 @@ tr:hover td{background:#fafaf8}
 const SUPA_URL = 'https://ejhyvfjwudeponhgawiz.supabase.co';
 const SUPA_KEY = 'sb_publishable_X_fOJC-3BhJ2ymGFB_6asQ_9T73J3GM';
 const supa = supabase.createClient(SUPA_URL, SUPA_KEY);
+// Poné la URL de tu logo acá (PNG o SVG). Si está vacío, no se muestra.
+const LOGO_URL = '';
 
 async function entrar(){
   const email = document.getElementById('login-email').value.trim();
@@ -163,6 +170,14 @@ async function mostrarSistema(){
 }
 
 supa.auth.getSession().then(({data:{session}})=>{ if(session) mostrarSistema(); });
+
+// Mostrar logo si está configurado
+if(LOGO_URL){
+  const li = document.getElementById('sidebar-logo-img');
+  if(li){ li.src=LOGO_URL; li.style.display='block'; document.getElementById('sidebar-logo-icon').style.display='none'; }
+  const ll = document.getElementById('login-logo-wrap');
+  if(ll) ll.innerHTML=`<img src="${LOGO_URL}" style="height:72px;width:auto;border-radius:10px">`;
+}
 
 const titles = {dashboard:'Inicio',clientes:'Clientes',vehiculos:'Vehículos',ordenes:'Órdenes de trabajo',prioridades:'Cola de prioridades',turnos:'Turnos',presupuestos:'Presupuestos',precios:'Lista de precios',historial:'Historial de clientes',cuentas:'Cuentas corrientes',caja:'Caja',cierre:'Cierre mensual'};
 let page = 'dashboard';
@@ -272,28 +287,42 @@ async function renderDashboard(){
 }
 
 async function renderClientes(){
-  const {data} = await supa.from('clientes').select('*').order('nombre');
+  const [{data}, {data:vehs}] = await Promise.all([
+    supa.from('clientes').select('*').order('nombre'),
+    supa.from('vehiculos').select('cliente_id,id,patente,marca,modelo')
+  ]);
+  window._clientes = data||[];
+  window._vehsPorCliente = {};
+  (vehs||[]).forEach(v=>{
+    if(!window._vehsPorCliente[v.cliente_id]) window._vehsPorCliente[v.cliente_id]=[];
+    window._vehsPorCliente[v.cliente_id].push(v);
+  });
   document.getElementById('content').innerHTML = `
   <div style="display:flex;gap:12px;margin-bottom:20px">
     <div class="search-wrap" style="flex:1"><i class="ti ti-search si"></i><input type="text" placeholder="Buscar cliente..." id="buscar-cliente" oninput="filtrarClientes()"></div>
     <button class="btn btn-primary" onclick="modalCliente()"><i class="ti ti-plus"></i> Nuevo cliente</button>
   </div>
   <div class="card" style="padding:0" id="tabla-clientes">${renderTablaClientes(data||[])}</div>`;
-  window._clientes = data||[];
 }
 
 function renderTablaClientes(data){
   if(!data.length) return '<div class="empty"><i class="ti ti-users"></i><p>No hay clientes registrados</p></div>';
-  return `<table><thead><tr><th></th><th>Nombre</th><th>DNI</th><th>Teléfono</th><th>Email</th><th></th></tr></thead><tbody>
-  ${data.map(c=>`<tr>
+  return `<table><thead><tr><th></th><th>Nombre</th><th>DNI</th><th>Teléfono</th><th>Email</th><th>Vehículos</th><th></th></tr></thead><tbody>
+  ${data.map(c=>{
+    const vehs = window._vehsPorCliente?.[c.id]||[];
+    const vehsHtml = vehs.length
+      ? vehs.map(v=>`<div style="font-size:11px;white-space:nowrap"><i class="ti ti-car" style="font-size:11px"></i> <strong>${v.patente}</strong> ${v.marca} ${v.modelo}</div>`).join('')
+      : '<span style="color:var(--text2);font-size:12px">Sin vehículos</span>';
+    return `<tr>
     <td><div class="avatar">${iniciales(c.nombre+' '+c.apellido)}</div></td>
     <td><div style="font-weight:500">${c.nombre} ${c.apellido}</div></td>
     <td>${c.dni||'-'}</td><td>${c.telefono||'-'}</td><td>${c.email||'-'}</td>
+    <td>${vehsHtml}</td>
     <td style="display:flex;gap:4px">
       <button class="btn btn-sm" onclick="verFichaCliente('${c.id}')"><i class="ti ti-eye"></i></button>
       <button class="btn btn-sm" onclick="modalCliente('${c.id}')"><i class="ti ti-edit"></i></button>
       <button class="btn btn-sm btn-danger" onclick="eliminarCliente('${c.id}')"><i class="ti ti-trash"></i></button>
-    </td></tr>`).join('')}
+    </td></tr>`;}).join('')}
   </tbody></table>`;
 }
 
@@ -534,7 +563,7 @@ function filtrarVehsOrden(cliId, selId){
   const sel = document.getElementById('f-veh');
   if(!sel)return;
   sel.innerHTML = filtrados.length
-    ? filtrados.map(v=>`<option value="${v.id}" ${v.id===selId?'selected':''}>${v.patente} - ${v.marca} ${v.modelo}</option>`).join('')
+    ? filtrados.map((v,i)=>`<option value="${v.id}" ${(selId?v.id===selId:i===0)?'selected':''}>${v.patente} - ${v.marca} ${v.modelo}</option>`).join('')
     : '<option value="">Sin vehículos para este cliente</option>';
 }
 
@@ -953,10 +982,114 @@ async function verPresupuesto(id){
     <div style="text-align:right;font-size:16px;font-weight:600;margin-top:12px" class="green">Total: ${fmt(p.total)}</div>
     <div class="sep"></div>
     <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn" onclick="generarPresupuestoPDF('${id}')"><i class="ti ti-file-download"></i> PDF</button>
       <button class="btn btn-primary" onclick="aprobarPresupuesto('${id}')"><i class="ti ti-check"></i> Aprobar</button>
       <button class="btn btn-danger" onclick="rechazarPresupuesto('${id}')"><i class="ti ti-x"></i> Rechazar</button>
       <button class="btn" onclick="cerrarModal()">Cerrar</button>
     </div>`);
+}
+
+async function generarPresupuestoPDF(id){
+  const [{data:p},{data:items}] = await Promise.all([
+    supa.from('presupuestos').select('*').eq('id',id).single(),
+    supa.from('presupuesto_items').select('*').eq('presupuesto_id',id)
+  ]);
+  const {jsPDF} = window.jspdf;
+  const doc = new jsPDF();
+  const w = doc.internal.pageSize.getWidth();
+
+  // Header verde
+  doc.setFillColor(29,158,117);
+  doc.rect(0,0,w,38,'F');
+
+  // Logo si hay
+  if(LOGO_URL){
+    try{
+      const img = new Image(); img.src=LOGO_URL;
+      await new Promise(r=>{img.onload=r;img.onerror=r;});
+      doc.addImage(img,'PNG',12,4,28,28);
+    }catch(e){}
+  }
+
+  doc.setTextColor(255,255,255);
+  doc.setFontSize(17); doc.setFont('helvetica','bold');
+  doc.text('CUARTA MARCHA TALLER MECÁNICO', w/2,13,{align:'center'});
+  doc.setFontSize(9); doc.setFont('helvetica','normal');
+  doc.text('San Isidro 1256, Córdoba Capital', w/2,22,{align:'center'});
+  doc.text('Tel: 351-344-3965  |  cuartamarchataller@gmail.com', w/2,30,{align:'center'});
+
+  // Título
+  doc.setTextColor(29,158,117);
+  doc.setFontSize(16); doc.setFont('helvetica','bold');
+  doc.text('PRESUPUESTO', w/2,48,{align:'center'});
+
+  doc.setTextColor(100,100,100);
+  doc.setFontSize(10); doc.setFont('helvetica','normal');
+  doc.text(`N° ${p.numero}`, 15,48);
+  doc.text(`Fecha: ${fmtFecha(p.fecha)}`, w-15,48,{align:'right'});
+
+  doc.setDrawColor(29,158,117); doc.setLineWidth(0.5);
+  doc.line(15,52,w-15,52);
+
+  // Datos cliente
+  doc.setFillColor(245,245,243);
+  doc.rect(15,56,w-30,20,'F');
+  doc.setTextColor(30,30,30);
+  doc.setFontSize(10); doc.setFont('helvetica','bold');
+  doc.text('CLIENTE', 20,65);
+  doc.setFont('helvetica','normal');
+  doc.text(p.cliente_nombre||'-', 20,73);
+  doc.text(`Tipo de precio: ${p.tipo_precio==='tarjeta'?'Tarjeta':'Contado'}`, w-15,65,{align:'right'});
+  if(p.observaciones) doc.text(`Obs: ${p.observaciones}`, w-15,73,{align:'right'});
+
+  // Encabezado tabla ítems
+  let y=84;
+  doc.setFillColor(29,158,117);
+  doc.rect(15,y,w-30,8,'F');
+  doc.setTextColor(255,255,255);
+  doc.setFontSize(10); doc.setFont('helvetica','bold');
+  doc.text('Descripción', 20,y+5.5);
+  doc.text('Cant.', 130,y+5.5,{align:'center'});
+  doc.text('P. Unit.', 155,y+5.5,{align:'center'});
+  doc.text('Subtotal', w-15,y+5.5,{align:'right'});
+
+  y+=12;
+  doc.setTextColor(30,30,30); doc.setFont('helvetica','normal');
+  (items||[]).forEach((it,i)=>{
+    if(i%2===0){doc.setFillColor(250,250,248);doc.rect(15,y-4,w-30,9,'F');}
+    doc.text(String(it.descripcion||'').slice(0,65), 20,y+1);
+    doc.text(String(it.cantidad), 130,y+1,{align:'center'});
+    doc.text(fmt(it.precio_unitario), 155,y+1,{align:'center'});
+    doc.text(fmt(it.subtotal), w-15,y+1,{align:'right'});
+    y+=9;
+  });
+
+  doc.setDrawColor(29,158,117); doc.line(15,y,w-15,y); y+=6;
+  doc.setFontSize(12); doc.setFont('helvetica','bold');
+  doc.setTextColor(15,110,86);
+  doc.text(`TOTAL: ${fmt(p.total)}`, w-15,y+2,{align:'right'});
+
+  y+=12;
+  const letras = numeroALetras(Math.floor(Number(p.total)));
+  doc.setFontSize(9); doc.setFont('helvetica','italic'); doc.setTextColor(100,100,100);
+  doc.text(`Son: ${letras} pesos`, 15,y);
+
+  // Validez
+  y+=14;
+  doc.setFontSize(9); doc.setFont('helvetica','normal');
+  doc.setTextColor(120,120,120);
+  doc.text('Este presupuesto tiene validez de 15 días desde la fecha de emisión.', w/2,y,{align:'center'});
+
+  // Footer
+  doc.setFillColor(245,245,243);
+  doc.rect(0,255,w,42,'F');
+  doc.setFontSize(8); doc.setTextColor(120,120,120);
+  doc.text('Cuarta Marcha Taller Mecánico  —  San Isidro 1256, Córdoba Capital', w/2,262,{align:'center'});
+  doc.text('Tel: 351-344-3965  |  cuartamarchataller@gmail.com', w/2,269,{align:'center'});
+  doc.setFontSize(7);
+  doc.text(`Generado el ${new Date().toLocaleDateString('es-AR')}`, w/2,276,{align:'center'});
+
+  doc.save(`Presupuesto-${p.cliente_nombre?.replace(/ /g,'-')}-${p.fecha}.pdf`);
 }
 
 async function aprobarPresupuesto(id){
@@ -1117,10 +1250,17 @@ async function generarReciboPDF(movId){
   const {jsPDF} = window.jspdf;
   const doc = new jsPDF();
   const w = doc.internal.pageSize.getWidth();
-  
+
   // Header
   doc.setFillColor(29,158,117);
   doc.rect(0,0,w,38,'F');
+  if(LOGO_URL){
+    try{
+      const logoImg = new Image(); logoImg.src=LOGO_URL;
+      await new Promise(r=>{logoImg.onload=r;logoImg.onerror=r;});
+      doc.addImage(logoImg,'PNG',12,4,28,28);
+    }catch(e){}
+  }
   doc.setTextColor(255,255,255);
   doc.setFontSize(17);
   doc.setFont('helvetica','bold');
