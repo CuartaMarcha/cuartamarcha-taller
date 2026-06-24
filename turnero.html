@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Reservá tu turno — Cuarta Marcha Taller Mecánico</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/dist/tabler-icons.min.css">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--red:#CC1F1F;--red-dark:#A01012;--black:#1a1a1a;--gray:#f4f4f4;--gray2:#e0e0e0;--text:#111;--text2:#666;--white:#fff;--radius:12px}
+body{font-family:system-ui,-apple-system,sans-serif;background:var(--gray);color:var(--text);font-size:15px;min-height:100vh}
+
+/* ── Header ── */
+.header{background:var(--black);padding:0 20px;display:flex;align-items:center;justify-content:space-between;height:60px}
+.header-brand{display:flex;align-items:center;gap:12px}
+.header-logo{height:40px;width:auto;border-radius:6px}
+.header-title{color:#fff;font-weight:700;font-size:16px;line-height:1.2}
+.header-sub{color:#888;font-size:11px}
+.header-info{color:#aaa;font-size:12px;text-align:right;display:none}
+@media(min-width:500px){.header-info{display:block}}
+
+/* ── Hero ── */
+.hero{background:var(--black);color:#fff;text-align:center;padding:40px 20px 50px}
+.hero h1{font-size:26px;font-weight:800;margin-bottom:8px}
+.hero h1 span{color:var(--red)}
+.hero p{color:#aaa;font-size:14px;max-width:400px;margin:0 auto}
+
+/* ── Stepper ── */
+.stepper-wrap{background:var(--black);padding:0 20px 24px;display:flex;justify-content:center}
+.stepper{display:flex;gap:0;max-width:500px;width:100%}
+.step{flex:1;text-align:center;position:relative}
+.step::after{content:'';position:absolute;top:14px;left:50%;width:100%;height:2px;background:#333;z-index:0}
+.step:last-child::after{display:none}
+.step-dot{width:28px;height:28px;border-radius:50%;background:#333;color:#666;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;margin:0 auto 6px;position:relative;z-index:1;transition:all .3s}
+.step.active .step-dot{background:var(--red);color:#fff}
+.step.done .step-dot{background:#1a6b35;color:#fff}
+.step-label{font-size:10px;color:#666;display:none}
+@media(min-width:400px){.step-label{display:block}}
+.step.active .step-label{color:#aaa}
+.step.done .step-label{color:#555}
+
+/* ── Main content ── */
+.container{max-width:640px;margin:0 auto;padding:24px 16px 60px}
+
+/* ── Cards / Steps ── */
+.panel{background:var(--white);border-radius:var(--radius);border:1px solid var(--gray2);padding:24px;margin-bottom:16px}
+.panel-title{font-size:16px;font-weight:700;margin-bottom:6px;display:flex;align-items:center;gap:8px}
+.panel-title i{color:var(--red);font-size:20px}
+.panel-sub{font-size:13px;color:var(--text2);margin-bottom:20px}
+
+/* ── Servicios ── */
+.servicios-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+@media(max-width:400px){.servicios-grid{grid-template-columns:1fr}}
+.servicio-card{border:2px solid var(--gray2);border-radius:10px;padding:14px;cursor:pointer;transition:all .2s;background:var(--white)}
+.servicio-card:hover{border-color:var(--red);background:#fff5f5}
+.servicio-card.selected{border-color:var(--red);background:#fff5f5;box-shadow:0 0 0 3px rgba(200,23,26,.12)}
+.servicio-nombre{font-weight:600;font-size:14px;margin-bottom:4px}
+.servicio-detalle{font-size:12px;color:var(--text2);display:flex;gap:10px;flex-wrap:wrap}
+.servicio-badge{display:inline-flex;align-items:center;gap:3px;padding:2px 8px;background:var(--gray);border-radius:20px;font-size:11px;font-weight:500}
+
+/* ── Calendario ── */
+.cal-nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+.cal-nav button{background:none;border:1px solid var(--gray2);border-radius:8px;padding:6px 12px;cursor:pointer;font-size:13px;color:var(--text)}
+.cal-nav button:hover{background:var(--gray)}
+.cal-mes{font-weight:700;font-size:15px}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+.cal-dia-label{text-align:center;font-size:11px;font-weight:600;color:var(--text2);padding:4px 0;text-transform:uppercase}
+.cal-dia{aspect-ratio:1;display:flex;align-items:center;justify-content:center;border-radius:8px;font-size:14px;cursor:pointer;transition:all .15s;border:2px solid transparent}
+.cal-dia.vacio{cursor:default}
+.cal-dia.pasado,.cal-dia.finde{color:#ccc;cursor:not-allowed;background:none}
+.cal-dia.disponible:hover{background:#fff0f0;border-color:var(--red)}
+.cal-dia.selected{background:var(--red);color:#fff;font-weight:700;border-color:var(--red)}
+.cal-dia.hoy{border-color:var(--gray2);font-weight:600}
+
+/* ── Slots de horario ── */
+.slots-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+@media(max-width:400px){.slots-grid{grid-template-columns:repeat(3,1fr)}}
+.slot{padding:10px 6px;text-align:center;border:2px solid var(--gray2);border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;transition:all .15s}
+.slot:hover{border-color:var(--red);background:#fff5f5}
+.slot.selected{background:var(--red);color:#fff;border-color:var(--red)}
+.slot.ocupado{background:var(--gray);color:#bbb;border-color:var(--gray2);cursor:not-allowed;text-decoration:line-through}
+.slot-cap{font-size:10px;font-weight:400;margin-top:2px}
+
+/* ── Formulario ── */
+label{display:block;font-size:12px;font-weight:600;color:var(--text2);margin-bottom:4px;margin-top:14px;text-transform:uppercase;letter-spacing:.04em}
+input,select,textarea{width:100%;padding:10px 14px;border:1.5px solid var(--gray2);border-radius:8px;font-size:14px;font-family:inherit;color:var(--text);background:var(--white);transition:border-color .15s}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--red)}
+.campo-req{color:var(--red)}
+
+/* ── Resumen ── */
+.resumen{background:var(--gray);border-radius:10px;padding:16px;margin-bottom:20px}
+.resumen-row{display:flex;justify-content:space-between;padding:5px 0;font-size:14px;border-bottom:1px solid var(--gray2)}
+.resumen-row:last-child{border-bottom:none;font-weight:700;font-size:16px;padding-top:10px}
+.resumen-row span:first-child{color:var(--text2)}
+
+/* ── Buttons ── */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:13px 24px;border-radius:10px;border:none;font-size:15px;font-weight:600;cursor:pointer;transition:all .2s;font-family:inherit;width:100%;margin-top:12px}
+.btn-red{background:var(--red);color:#fff}
+.btn-red:hover{background:var(--red-dark)}
+.btn-red:disabled{background:#ccc;cursor:not-allowed}
+.btn-outline{background:var(--white);color:var(--text);border:1.5px solid var(--gray2)}
+.btn-outline:hover{background:var(--gray)}
+
+/* ── Success ── */
+.success-wrap{text-align:center;padding:40px 20px}
+.success-icon{width:80px;height:80px;background:#e6f4ec;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 20px;font-size:40px;color:#1a6b35}
+.success-title{font-size:22px;font-weight:800;margin-bottom:8px}
+.success-sub{color:var(--text2);font-size:14px;max-width:320px;margin:0 auto 24px}
+.success-card{background:var(--black);color:#fff;border-radius:12px;padding:20px;text-align:left;margin:0 auto;max-width:340px}
+.success-card-row{display:flex;align-items:flex-start;gap:10px;padding:8px 0;border-bottom:1px solid #333;font-size:14px}
+.success-card-row:last-child{border-bottom:none}
+.success-card-row i{color:var(--red);font-size:18px;flex-shrink:0;margin-top:1px}
+.success-card-row .val{font-weight:600}
+.success-card-row .lbl{font-size:11px;color:#888}
+
+/* ── Loading ── */
+.loading{text-align:center;padding:40px;color:var(--text2)}
+.loading i{font-size:32px;animation:spin 1s linear infinite;display:block;margin-bottom:10px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.empty{text-align:center;padding:32px;color:var(--text2)}
+.empty i{font-size:32px;display:block;margin-bottom:8px}
+.badge-disponible{display:inline-block;padding:2px 8px;background:#e6f4ec;color:#1a6b35;border-radius:20px;font-size:11px;font-weight:600}
+.badge-lleno{display:inline-block;padding:2px 8px;background:#fdecea;color:#b71c1c;border-radius:20px;font-size:11px;font-weight:600}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-brand">
+    <img src="logo.png" class="header-logo" onerror="this.style.display='none'">
+    <div>
+      <div class="header-title">Cuarta Marcha</div>
+      <div class="header-sub">Taller Mecánico</div>
+    </div>
+  </div>
+  <div class="header-info">
+    <div><i class="ti ti-phone"></i> 351-344-3965</div>
+    <div>Lunes a Viernes 8:30–18:00</div>
+  </div>
+</div>
+
+<div class="hero" id="hero-section">
+  <h1>Reservá tu <span>turno</span> online</h1>
+  <p>Elegí el servicio, la fecha y el horario que mejor te quede. Sin esperas, sin llamadas.</p>
+</div>
+
+<div class="stepper-wrap" id="stepper-wrap">
+  <div class="stepper">
+    <div class="step active" id="step-dot-1">
+      <div class="step-dot">1</div>
+      <div class="step-label">Servicio</div>
+    </div>
+    <div class="step" id="step-dot-2">
+      <div class="step-dot">2</div>
+      <div class="step-label">Fecha</div>
+    </div>
+    <div class="step" id="step-dot-3">
+      <div class="step-dot">3</div>
+      <div class="step-label">Horario</div>
+    </div>
+    <div class="step" id="step-dot-4">
+      <div class="step-dot">4</div>
+      <div class="step-label">Tus datos</div>
+    </div>
+  </div>
+</div>
+
+<div class="container">
+  <div id="app-content">
+    <div class="loading"><i class="ti ti-loader"></i>Cargando servicios...</div>
+  </div>
+</div>
+
+<script>
+const SUPA_URL = 'https://ejhyvfjwudeponhgawiz.supabase.co';
+const SUPA_KEY = 'sb_publishable_X_fOJC-3BhJ2ymGFB_6asQ_9T73J3GM';
+const supa = supabase.createClient(SUPA_URL, SUPA_KEY);
+
+const HORA_INICIO = 8 * 60 + 30; // 8:30 en minutos
+const HORA_FIN    = 18 * 60;     // 18:00 en minutos
+const MAX_AUTOS   = 3;           // mecánicos simultáneos
+const PASO_SLOT   = 30;          // cada 30 min
+
+let state = {
+  paso: 1,
+  servicio: null,
+  fecha: null,
+  slot: null,
+  turnos_dia: []
+};
+
+const meses = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+const dias_short = ['Do','Lu','Ma','Mi','Ju','Vi','Sa'];
+let calMes = new Date(); calMes.setDate(1);
+
+function hoy(){ return new Date().toISOString().slice(0,10); }
+function padZ(n){ return String(n).padStart(2,'0'); }
+function minToTime(m){ return `${padZ(Math.floor(m/60))}:${padZ(m%60)}`; }
+function timeToMin(t){ const [h,m]=t.slice(0,5).split(':').map(Number); return h*60+m; }
+function fmtFecha(d){ if(!d)return''; const[y,mo,dd]=d.split('-'); return `${dd}/${mo}/${y}`; }
+function isWeekday(dateStr){const d=new Date(dateStr+'T12:00:00');const w=d.getDay();return w>=1&&w<=5;}
+function fmt(n){return '$'+Number(n||0).toLocaleString('es-AR')}
+
+// ── Actualizar stepper ──
+function updateStepper(paso){
+  for(let i=1;i<=4;i++){
+    const el=document.getElementById(`step-dot-${i}`);
+    el.className='step'+(i===paso?' active':i<paso?' done':'');
+  }
+}
+
+// ── Paso 1: Elegir servicio ──
+async function renderPaso1(){
+  state.paso=1; updateStepper(1);
+  const c=document.getElementById('app-content');
+  c.innerHTML='<div class="loading"><i class="ti ti-loader"></i>Cargando servicios...</div>';
+  const {data:precios}=await supa.from('precios').select('*').order('descripcion');
+  if(!precios?.length){
+    c.innerHTML='<div class="empty"><i class="ti ti-tools"></i><p>No hay servicios disponibles por el momento.</p></div>';
+    return;
+  }
+  const servicios=precios.filter(p=>p.horas_trabajo>0);
+  c.innerHTML=`
+  <div class="panel">
+    <div class="panel-title"><i class="ti ti-tools"></i> ¿Qué servicio necesitás?</div>
+    <div class="panel-sub">Seleccioná el trabajo que necesitás realizar. La duración varía según el servicio.</div>
+    <div class="servicios-grid" id="servicios-lista">
+      ${servicios.map(s=>`
+      <div class="servicio-card" onclick="seleccionarServicio('${s.id}','${escHtml(s.descripcion)}',${s.horas_trabajo||1},${s.precio_contado||0})">
+        <div class="servicio-nombre">${s.descripcion}</div>
+        <div class="servicio-detalle">
+          <span class="servicio-badge"><i class="ti ti-clock" style="font-size:11px"></i> ${s.horas_trabajo}h</span>
+          <span class="servicio-badge">${fmt(s.precio_contado)}</span>
+        </div>
+      </div>`).join('')}
+    </div>
+    <div style="margin-top:16px;padding:12px;background:var(--gray);border-radius:8px;font-size:12px;color:var(--text2)">
+      <i class="ti ti-info-circle"></i> ¿No encontrás tu servicio? Llamanos al <strong>351-344-3965</strong> y te asesoramos.
+    </div>
+  </div>`;
+}
+
+function escHtml(s){return String(s).replace(/'/g,"&#39;").replace(/"/g,'&quot;');}
+
+function seleccionarServicio(id,nombre,horas,precio){
+  document.querySelectorAll('.servicio-card').forEach(c=>c.classList.remove('selected'));
+  event.currentTarget.classList.add('selected');
+  state.servicio={id,nombre,horas:Number(horas),precio:Number(precio)};
+  setTimeout(()=>renderPaso2(),300);
+}
+
+// ── Paso 2: Elegir fecha ──
+function renderPaso2(){
+  state.paso=2; updateStepper(2);
+  document.getElementById('app-content').innerHTML=`
+  <div class="panel">
+    <div class="panel-title"><i class="ti ti-calendar"></i> ¿Qué día te viene bien?</div>
+    <div class="panel-sub">Servicio: <strong>${state.servicio.nombre}</strong> · <strong>${state.servicio.horas}h</strong></div>
+    <div class="cal-nav">
+      <button onclick="cambiarMes(-1)"><i class="ti ti-chevron-left"></i> Ant.</button>
+      <span class="cal-mes" id="cal-titulo"></span>
+      <button onclick="cambiarMes(1)">Sig. <i class="ti ti-chevron-right"></i></button>
+    </div>
+    <div class="cal-grid" id="cal-grid"></div>
+  </div>
+  <button class="btn btn-outline" onclick="renderPaso1()"><i class="ti ti-arrow-left"></i> Cambiar servicio</button>`;
+  renderCalendario();
+}
+
+function cambiarMes(d){
+  calMes.setMonth(calMes.getMonth()+d);
+  if(calMes<new Date()){calMes=new Date();calMes.setDate(1);}
+  renderCalendario();
+}
+
+function renderCalendario(){
+  const hoyStr=hoy();
+  const mes=calMes.getMonth(), anio=calMes.getFullYear();
+  document.getElementById('cal-titulo').textContent=`${meses[mes]} ${anio}`;
+  const primero=new Date(anio,mes,1).getDay();
+  const diasMes=new Date(anio,mes+1,0).getDate();
+  const maxDate=new Date(); maxDate.setDate(maxDate.getDate()+60);
+  let html=dias_short.map(d=>`<div class="cal-dia-label">${d}</div>`).join('');
+  for(let i=0;i<primero;i++) html+=`<div class="cal-dia vacio"></div>`;
+  for(let d=1;d<=diasMes;d++){
+    const dStr=`${anio}-${padZ(mes+1)}-${padZ(d)}`;
+    const esHoy=dStr===hoyStr;
+    const esPasado=dStr<hoyStr;
+    const esFinde=!isWeekday(dStr);
+    const esFuturoLejos=new Date(dStr)>maxDate;
+    const selec=state.fecha===dStr;
+    let cls='cal-dia';
+    if(esPasado||esFinde||esFuturoLejos) cls+=' pasado finde';
+    else cls+=' disponible';
+    if(esHoy) cls+=' hoy';
+    if(selec) cls+=' selected';
+    const click=(esPasado||esFinde||esFuturoLejos)?'':`onclick="seleccionarFecha('${dStr}')"`;
+    html+=`<div class="${cls}" ${click}>${d}</div>`;
+  }
+  document.getElementById('cal-grid').innerHTML=html;
+}
+
+async function seleccionarFecha(fecha){
+  state.fecha=fecha;
+  renderCalendario();
+  setTimeout(()=>renderPaso3(),250);
+}
+
+// ── Paso 3: Elegir horario ──
+async function renderPaso3(){
+  state.paso=3; updateStepper(3);
+  const c=document.getElementById('app-content');
+  c.innerHTML='<div class="loading"><i class="ti ti-loader"></i>Buscando horarios disponibles...</div>';
+
+  // Buscar turnos existentes ese día
+  const {data:turnos}=await supa.from('turnos')
+    .select('hora,duracion_estimada')
+    .eq('fecha',state.fecha)
+    .not('estado','eq','cancelado');
+  state.turnos_dia=turnos||[];
+
+  // Generar slots
+  const durMin=Math.round(state.servicio.horas*60);
+  const slots=[];
+  for(let m=HORA_INICIO;m+durMin<=HORA_FIN;m+=PASO_SLOT){
+    const t=minToTime(m);
+    const ocupados=contarSolapados(state.fecha,t,durMin,state.turnos_dia);
+    slots.push({time:t,ocupados,disponible:ocupados<MAX_AUTOS});
+  }
+
+  const disponibles=slots.filter(s=>s.disponible).length;
+
+  c.innerHTML=`
+  <div class="panel">
+    <div class="panel-title"><i class="ti ti-clock"></i> Elegí el horario</div>
+    <div class="panel-sub">${fmtFecha(state.fecha)} · <strong>${state.servicio.nombre}</strong> (${state.servicio.horas}h)
+      ${disponibles>0?`<span class="badge-disponible" style="margin-left:8px">${disponibles} turnos libres</span>`:'<span class="badge-lleno" style="margin-left:8px">Sin turnos disponibles</span>'}
+    </div>
+    ${disponibles>0?`
+    <div class="slots-grid">
+      ${slots.map(s=>`
+      <div class="slot${s.disponible?'':' ocupado'}${state.slot===s.time?' selected':''}"
+        ${s.disponible?`onclick="seleccionarSlot('${s.time}')"`:''}>
+        ${s.time}
+        <div class="slot-cap">${s.disponible?`${MAX_AUTOS-s.ocupados} libre${MAX_AUTOS-s.ocupados!==1?'s':''}`:' Lleno'}</div>
+      </div>`).join('')}
+    </div>`
+    :`<div class="empty"><i class="ti ti-calendar-off"></i><p>No hay horarios disponibles para este día.<br>Probá con otro día.</p></div>`}
+  </div>
+  <button class="btn btn-outline" onclick="renderPaso2()"><i class="ti ti-arrow-left"></i> Cambiar fecha</button>`;
+}
+
+function contarSolapados(fecha,startTime,durMin,turnos){
+  const startM=timeToMin(startTime);
+  const endM=startM+durMin;
+  return turnos.filter(t=>{
+    const tStart=timeToMin(t.hora||'00:00');
+    const tEnd=tStart+(Number(t.duracion_estimada)||60);
+    return tStart<endM&&tEnd>startM;
+  }).length;
+}
+
+function seleccionarSlot(time){
+  state.slot=time;
+  document.querySelectorAll('.slot').forEach(s=>s.classList.remove('selected'));
+  event.currentTarget.classList.add('selected');
+  setTimeout(()=>renderPaso4(),250);
+}
+
+// ── Paso 4: Datos del cliente ──
+function renderPaso4(){
+  state.paso=4; updateStepper(4);
+  document.getElementById('app-content').innerHTML=`
+  <div class="panel">
+    <div class="panel-title"><i class="ti ti-user"></i> Tus datos</div>
+    <div class="panel-sub">Completá tus datos para confirmar el turno.</div>
+
+    <label>Nombre y apellido <span class="campo-req">*</span></label>
+    <input id="t-nombre" placeholder="Ej: María García" autocomplete="name">
+
+    <label>Teléfono <span class="campo-req">*</span></label>
+    <input id="t-tel" type="tel" placeholder="Ej: 351-234-5678" autocomplete="tel">
+
+    <label>Email</label>
+    <input id="t-email" type="email" placeholder="Opcional, para recibir confirmación" autocomplete="email">
+
+    <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--gray2)">
+      <div class="panel-title" style="font-size:14px;margin-bottom:4px"><i class="ti ti-car"></i> Tu vehículo</div>
+    </div>
+
+    <label>Marca y modelo <span class="campo-req">*</span></label>
+    <input id="t-auto" placeholder="Ej: Peugeot 308">
+
+    <label>Patente</label>
+    <input id="t-patente" placeholder="Ej: AB 123 CD" style="text-transform:uppercase">
+
+    <label>Kilometraje aproximado</label>
+    <input id="t-km" type="number" placeholder="Opcional">
+
+    <label>Observaciones / comentarios</label>
+    <textarea id="t-obs" rows="3" placeholder="Contanos algo más sobre el problema o lo que necesitás..."></textarea>
+  </div>
+
+  <div class="panel">
+    <div class="panel-title"><i class="ti ti-receipt"></i> Resumen</div>
+    <div class="resumen">
+      <div class="resumen-row"><span>Servicio</span><span><strong>${state.servicio.nombre}</strong></span></div>
+      <div class="resumen-row"><span>Duración estimada</span><span>${state.servicio.horas} hora${state.servicio.horas!==1?'s':''}</span></div>
+      <div class="resumen-row"><span>Fecha</span><span><strong>${fmtFecha(state.fecha)}</strong></span></div>
+      <div class="resumen-row"><span>Horario</span><span><strong>${state.slot}hs</strong></span></div>
+      <div class="resumen-row"><span>Precio estimado</span><span style="color:var(--red)">${fmt(state.servicio.precio)}</span></div>
+    </div>
+    <p style="font-size:11px;color:var(--text2);margin-bottom:16px">* El precio final puede variar según el diagnóstico del mecánico.</p>
+    <button class="btn btn-red" id="btn-confirmar" onclick="confirmarTurno()">
+      <i class="ti ti-check"></i> Confirmar turno
+    </button>
+  </div>
+  <button class="btn btn-outline" onclick="renderPaso3()"><i class="ti ti-arrow-left"></i> Cambiar horario</button>`;
+}
+
+// ── Confirmar turno ──
+async function confirmarTurno(){
+  const nombre=document.getElementById('t-nombre').value.trim();
+  const tel=document.getElementById('t-tel').value.trim();
+  const auto=document.getElementById('t-auto').value.trim();
+  if(!nombre||!tel||!auto){alert('Completá nombre, teléfono y vehículo');return;}
+
+  const btn=document.getElementById('btn-confirmar');
+  btn.disabled=true; btn.innerHTML='<i class="ti ti-loader"></i> Confirmando...';
+
+  // Verificar disponibilidad antes de guardar
+  const {data:turnosActuales}=await supa.from('turnos')
+    .select('hora,duracion_estimada')
+    .eq('fecha',state.fecha)
+    .not('estado','eq','cancelado');
+
+  const durMin=Math.round(state.servicio.horas*60);
+  const ocupados=contarSolapados(state.fecha,state.slot,durMin,turnosActuales||[]);
+  if(ocupados>=MAX_AUTOS){
+    btn.disabled=false; btn.innerHTML='<i class="ti ti-check"></i> Confirmar turno';
+    alert('Este horario se acaba de ocupar. Por favor elegí otro horario.');
+    await renderPaso3(); return;
+  }
+
+  const patente=document.getElementById('t-patente').value.trim().toUpperCase();
+  const km=document.getElementById('t-km').value.trim();
+  const obs=document.getElementById('t-obs').value.trim();
+  const email=document.getElementById('t-email').value.trim();
+
+  const {error}=await supa.from('turnos').insert({
+    cliente_nombre: nombre,
+    vehiculo_patente: patente||null,
+    vehiculo_modelo: auto,
+    fecha: state.fecha,
+    hora: state.slot,
+    tipo_trabajo: state.servicio.nombre,
+    duracion_estimada: durMin,
+    estado: 'pendiente',
+    telefono_contacto: tel,
+    observaciones: [
+      obs,
+      email?`Email: ${email}`:'',
+      km?`KM: ${km}`:'',
+      `Precio estimado: ${fmt(state.servicio.precio)}`
+    ].filter(Boolean).join('\n')
+  });
+
+  if(error){
+    btn.disabled=false; btn.innerHTML='<i class="ti ti-check"></i> Confirmar turno';
+    alert('Hubo un error al guardar el turno. Intentá de nuevo o llamanos al 351-344-3965.');
+    return;
+  }
+  renderExito(nombre, auto, patente);
+}
+
+// ── Pantalla de éxito ──
+function renderExito(nombre, auto, patente){
+  document.getElementById('hero-section').style.display='none';
+  document.getElementById('stepper-wrap').style.display='none';
+  document.getElementById('app-content').innerHTML=`
+  <div class="success-wrap">
+    <div class="success-icon"><i class="ti ti-check"></i></div>
+    <div class="success-title">¡Turno confirmado!</div>
+    <div class="success-sub">Te esperamos. Si necesitás cancelar o reprogramar llamanos al <strong>351-344-3965</strong>.</div>
+    <div class="success-card">
+      <div class="success-card-row">
+        <i class="ti ti-tools"></i>
+        <div><div class="lbl">Servicio</div><div class="val">${state.servicio.nombre}</div></div>
+      </div>
+      <div class="success-card-row">
+        <i class="ti ti-calendar"></i>
+        <div><div class="lbl">Fecha y hora</div><div class="val">${fmtFecha(state.fecha)} a las ${state.slot}hs</div></div>
+      </div>
+      <div class="success-card-row">
+        <i class="ti ti-car"></i>
+        <div><div class="lbl">Vehículo</div><div class="val">${auto}${patente?' · '+patente:''}</div></div>
+      </div>
+      <div class="success-card-row">
+        <i class="ti ti-user"></i>
+        <div><div class="lbl">Titular</div><div class="val">${nombre}</div></div>
+      </div>
+      <div class="success-card-row">
+        <i class="ti ti-map-pin"></i>
+        <div><div class="lbl">Dirección</div><div class="val">San Isidro 1256, Córdoba Capital</div></div>
+      </div>
+    </div>
+    <button class="btn btn-outline" style="max-width:300px;margin:20px auto 0" onclick="location.reload()">
+      <i class="ti ti-plus"></i> Sacar otro turno
+    </button>
+  </div>`;
+}
+
+// ── Arrancar ──
+renderPaso1();
+</script>
+</body>
+</html>
