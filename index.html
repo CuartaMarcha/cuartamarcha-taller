@@ -926,11 +926,15 @@ async function modalPresupuesto(){
   abrirModal(`
     <div class="modal-title"><span>Nuevo presupuesto</span><button class="btn btn-sm" onclick="cerrarModal()"><i class="ti ti-x"></i></button></div>
     <div class="grid2">
-      <div><label>Cliente *</label><select id="fp-cli" onchange="filtrarVehsPres()">
-        <option value="">Seleccioná</option>
-        ${cls?.map(c=>`<option value="${c.id}" data-nombre="${c.nombre} ${c.apellido}">${c.nombre} ${c.apellido}</option>`).join('')}
-      </select></div>
-      <div><label>Vehículo</label><select id="fp-veh"><option value="">Seleccioná cliente</option></select></div>
+      <div>
+        <label>Cliente</label>
+        <select id="fp-cli" onchange="filtrarVehsPres();toggleClientePres()">
+          <option value="" data-nombre="Consumidor Final">— Consumidor Final —</option>
+          ${cls?.map(c=>`<option value="${c.id}" data-nombre="${c.nombre} ${c.apellido}">${c.nombre} ${c.apellido}</option>`).join('')}
+        </select>
+        <input id="fp-nombre-libre" placeholder="Nombre del cliente (opcional)" style="margin-top:6px">
+      </div>
+      <div><label>Vehículo</label><select id="fp-veh"><option value="">Sin vehículo</option></select></div>
     </div>
     <div class="grid2">
       <div><label>Tipo de precio</label><select id="fp-tipo"><option value="contado">Contado</option><option value="tarjeta">Tarjeta</option></select></div>
@@ -952,11 +956,17 @@ async function modalPresupuesto(){
     </div>`);
 }
 
+function toggleClientePres(){
+  const cliId = document.getElementById('fp-cli').value;
+  const input = document.getElementById('fp-nombre-libre');
+  if(input) input.style.display = cliId ? 'none' : 'block';
+}
+
 function filtrarVehsPres(){
   const cliId = document.getElementById('fp-cli').value;
   const filtrados = (window._vehsPres||[]).filter(v=>v.cliente_id===cliId);
   const sel = document.getElementById('fp-veh');
-  sel.innerHTML = filtrados.length?filtrados.map(v=>`<option value="${v.id}">${v.patente} - ${v.marca} ${v.modelo}</option>`).join(''):'<option value="">Sin vehículos</option>';
+  sel.innerHTML = '<option value="">Sin vehículo</option>'+(filtrados.length?filtrados.map(v=>`<option value="${v.id}">${v.patente} - ${v.marca} ${v.modelo}</option>`).join(''):'');
 }
 
 function agregarItemPres(){
@@ -986,9 +996,11 @@ function renderItemsPres(){
 
 async function guardarPresupuesto(){
   const cliSel = document.getElementById('fp-cli');
-  const cliId = cliSel.value;
-  const cliNombre = cliSel.options[cliSel.selectedIndex]?.dataset?.nombre||'';
-  if(!cliId){alert('Seleccioná un cliente');return;}
+  const cliId = cliSel.value||null;
+  const nombreLibre = document.getElementById('fp-nombre-libre')?.value?.trim();
+  const cliNombre = cliId
+    ? (cliSel.options[cliSel.selectedIndex]?.dataset?.nombre||'')
+    : (nombreLibre||'Consumidor Final');
   if(!window._presup_items.length){alert('Agregá al menos un ítem al presupuesto');return;}
   const total = window._presup_items.reduce((a,b)=>a+b.precio*b.cantidad,0);
   const {data:pres,error} = await supa.from('presupuestos').insert({
