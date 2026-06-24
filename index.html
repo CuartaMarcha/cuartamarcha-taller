@@ -9,55 +9,89 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/dist/tabler-icons.min.css">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
-:root{--verde:#1D9E75;--verde-dark:#0F6E56;--rojo:#E24B4A;--azul:#378ADD;--amber:#BA7517;--bg:#f8f8f6;--bg2:#ffffff;--border:#e5e5e0;--text:#1a1a18;--text2:#6b6b67;--radius:10px}
+:root{
+  --primary:#C8171A;--primary-dark:#A01012;--rojo:#C8171A;--verde:#C8171A;--verde-dark:#A01012;
+  --azul:#555;--amber:#BA7517;
+  --bg:#f2f2f2;--bg2:#ffffff;--border:#e0e0e0;
+  --text:#111111;--text2:#777777;--radius:10px;
+  --sidebar-bg:#1a1a1a;--sidebar-border:#2e2e2e;--sidebar-text:#e0e0e0;--sidebar-text2:#888;
+}
 body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);font-size:14px}
+
+/* ── Layout ── */
 .app{display:flex;height:100vh;overflow:hidden}
-.sidebar{width:210px;min-width:210px;background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;padding:0}
-.logo{padding:20px 16px;border-bottom:1px solid var(--border)}
-.logo-title{font-size:15px;font-weight:600;color:var(--verde)}
-.logo-sub{font-size:11px;color:var(--text2);margin-top:2px}
-.nav{padding:8px 0;flex:1}
-.nav-item{display:flex;align-items:center;gap:10px;padding:9px 16px;cursor:pointer;font-size:13px;color:var(--text2);border:none;background:none;width:100%;text-align:left;transition:all .15s;border-right:3px solid transparent}
-.nav-item:hover{background:#f0f0ee;color:var(--text)}
-.nav-item.active{background:#e8f5f0;color:var(--verde);font-weight:500;border-right-color:var(--verde)}
-.nav-item i{font-size:17px}
-.nav-bottom{padding:12px 16px;border-top:1px solid var(--border)}
-.main{flex:1;overflow-y:auto;display:flex;flex-direction:column}
-.topbar{padding:14px 24px;border-bottom:1px solid var(--border);background:var(--bg2);display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:10}
-.topbar-title{font-size:16px;font-weight:600}
-.content{padding:24px;flex:1}
-.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:var(--radius);border:1px solid var(--border);background:var(--bg2);cursor:pointer;font-size:13px;color:var(--text);transition:all .15s;font-family:inherit}
-.btn:hover{background:#f0f0ee}
-.btn-primary{background:var(--verde);color:#fff;border-color:var(--verde)}
-.btn-primary:hover{background:var(--verde-dark)}
-.btn-danger{background:var(--rojo);color:#fff;border-color:var(--rojo)}
+
+/* ── Sidebar ── */
+.sidebar{width:220px;min-width:220px;background:var(--sidebar-bg);border-right:1px solid var(--sidebar-border);display:flex;flex-direction:column;padding:0;transition:transform .25s;z-index:50}
+.logo{padding:18px 16px;border-bottom:1px solid var(--sidebar-border)}
+.logo-title{font-size:15px;font-weight:700;color:#fff}
+.logo-sub{font-size:11px;color:var(--sidebar-text2);margin-top:2px}
+.nav{padding:8px 0;flex:1;overflow-y:auto}
+.nav-item{display:flex;align-items:center;gap:10px;padding:10px 16px;cursor:pointer;font-size:13px;color:var(--sidebar-text2);border:none;background:none;width:100%;text-align:left;transition:all .15s;border-left:3px solid transparent}
+.nav-item:hover{background:#2a2a2a;color:#fff}
+.nav-item.active{background:#2a0000;color:var(--primary);font-weight:600;border-left-color:var(--primary)}
+.nav-item i{font-size:17px;flex-shrink:0}
+.nav-bottom{padding:12px 16px;border-top:1px solid var(--sidebar-border)}
+.nav-bottom .btn{background:#2a2a2a;color:var(--sidebar-text2);border-color:var(--sidebar-border)}
+.nav-bottom .btn:hover{background:#3a3a3a;color:#fff}
+
+/* ── Main ── */
+.main{flex:1;overflow-y:auto;display:flex;flex-direction:column;min-width:0}
+.topbar{padding:12px 20px;border-bottom:1px solid var(--border);background:var(--bg2);display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:10;gap:12px}
+.topbar-title{font-size:16px;font-weight:700}
+.hamburger{display:none;background:none;border:none;cursor:pointer;padding:4px;color:var(--text)}
+.hamburger i{font-size:22px}
+.sidebar-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:40}
+.content{padding:20px;flex:1}
+
+/* ── Buttons ── */
+.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:var(--radius);border:1px solid var(--border);background:var(--bg2);cursor:pointer;font-size:13px;color:var(--text);transition:all .15s;font-family:inherit;white-space:nowrap}
+.btn:hover{background:#f0f0f0}
+.btn-primary{background:var(--primary);color:#fff;border-color:var(--primary)}
+.btn-primary:hover{background:var(--primary-dark)}
+.btn-danger{background:#c0392b;color:#fff;border-color:#c0392b}
 .btn-sm{padding:5px 10px;font-size:12px}
+
+/* ── Cards / Grids ── */
 .card{background:var(--bg2);border-radius:var(--radius);border:1px solid var(--border);padding:20px}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
 .grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px}
 .grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
 .metric{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:16px;text-align:center}
 .metric-label{font-size:12px;color:var(--text2);margin-bottom:6px}
-.metric-value{font-size:26px;font-weight:600}
-.green{color:var(--verde)}.red{color:var(--rojo)}.blue{color:var(--azul)}.amber{color:var(--amber)}
+.metric-value{font-size:26px;font-weight:700}
+.green{color:#1a7a3a}.red{color:var(--primary)}.blue{color:#1a5fa0}.amber{color:var(--amber)}
+
+/* ── Forms ── */
 label{font-size:12px;color:var(--text2);display:block;margin-bottom:4px;margin-top:12px}
 input,select,textarea{width:100%;padding:8px 12px;border-radius:8px;border:1px solid var(--border);background:var(--bg2);color:var(--text);font-size:13px;font-family:inherit}
-input:focus,select:focus,textarea:focus{outline:none;border-color:var(--verde)}
-.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:flex-start;justify-content:center;padding-top:60px;z-index:100;overflow-y:auto}
-.modal{background:var(--bg2);border-radius:var(--radius);border:1px solid var(--border);padding:24px;width:580px;max-width:96vw;margin-bottom:60px}
-.modal-title{font-size:15px;font-weight:600;margin-bottom:20px;display:flex;justify-content:space-between;align-items:center}
-table{width:100%;border-collapse:collapse;font-size:13px}
-th{font-size:11px;color:var(--text2);text-align:left;padding:8px;border-bottom:1px solid var(--border);font-weight:500;text-transform:uppercase;letter-spacing:.04em}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--primary)}
+
+/* ── Modal ── */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);display:flex;align-items:flex-start;justify-content:center;padding-top:40px;z-index:100;overflow-y:auto}
+.modal{background:var(--bg2);border-radius:var(--radius);border:1px solid var(--border);padding:24px;width:600px;max-width:96vw;margin-bottom:60px}
+.modal-title{font-size:15px;font-weight:700;margin-bottom:20px;display:flex;justify-content:space-between;align-items:center}
+
+/* ── Tables ── */
+.table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+table{width:100%;border-collapse:collapse;font-size:13px;min-width:500px}
+th{font-size:11px;color:var(--text2);text-align:left;padding:9px 8px;border-bottom:2px solid var(--border);font-weight:600;text-transform:uppercase;letter-spacing:.04em;white-space:nowrap}
 td{padding:9px 8px;border-bottom:1px solid var(--border);vertical-align:middle}
 tr:last-child td{border-bottom:none}
-tr:hover td{background:#fafaf8}
-.badge{display:inline-block;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:500}
-.badge-green{background:#e1f5ee;color:#0F6E56}
-.badge-amber{background:#faeeda;color:#854F0B}
-.badge-blue{background:#e6f1fb;color:#185FA5}
-.badge-red{background:#fcebeb;color:#A32D2D}
-.badge-gray{background:#f0f0ee;color:#6b6b67}
-.avatar{width:34px;height:34px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;background:#e1f5ee;color:#0F6E56;flex-shrink:0}
+tr:hover td{background:#fafafa}
+
+/* ── Badges ── */
+.badge{display:inline-block;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:600;white-space:nowrap}
+.badge-green{background:#e6f4ec;color:#1a6b35}
+.badge-amber{background:#fef3e2;color:#8a5500}
+.badge-blue{background:#e8f0fb;color:#1a4fa0}
+.badge-red{background:#fdecea;color:#b71c1c}
+.badge-gray{background:#f0f0f0;color:#666}
+
+/* ── Avatar ── */
+.avatar{width:34px;height:34px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;background:#2a2a2a;color:#fff;flex-shrink:0}
+
+/* ── Misc ── */
 .search-wrap{position:relative}
 .search-wrap input{padding-left:34px}
 .search-wrap .si{position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--text2);font-size:15px}
@@ -65,20 +99,46 @@ tr:hover td{background:#fafaf8}
 .empty{text-align:center;padding:48px;color:var(--text2)}
 .empty i{font-size:40px;margin-bottom:10px;display:block}
 .priority-bar{display:flex;gap:8px;margin-bottom:20px}
-.priority-col{flex:1;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:14px}
-.priority-col-title{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px}
+.priority-col{flex:1;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:14px;min-width:0}
+.priority-col-title{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px}
 .orden-card{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:8px;cursor:pointer;transition:border-color .15s}
-.orden-card:hover{border-color:var(--verde)}
+.orden-card:hover{border-color:var(--primary)}
 .orden-card-num{font-size:11px;color:var(--text2);margin-bottom:2px}
-.orden-card-cliente{font-size:13px;font-weight:500}
+.orden-card-cliente{font-size:13px;font-weight:600}
 .orden-card-trabajo{font-size:12px;color:var(--text2);margin-top:2px}
-.seccion-title{font-size:13px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:12px}
-.login-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--bg)}
+.seccion-title{font-size:12px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px}
+
+/* ── Login ── */
+.login-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;background:#111}
 .login-box{background:var(--bg2);border:1px solid var(--border);border-radius:16px;padding:40px;width:380px;max-width:96vw}
 .login-logo{text-align:center;margin-bottom:32px}
-.login-logo-title{font-size:22px;font-weight:700;color:var(--verde)}
+.login-logo-title{font-size:22px;font-weight:800;color:var(--primary)}
 .login-logo-sub{font-size:13px;color:var(--text2);margin-top:4px}
-.login-error{background:#fcebeb;color:#A32D2D;border-radius:8px;padding:10px 14px;font-size:13px;margin-top:12px;display:none}
+.login-error{background:#fdecea;color:#b71c1c;border-radius:8px;padding:10px 14px;font-size:13px;margin-top:12px;display:none}
+
+/* ── Fotos ── */
+.fotos-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:8px;margin-top:8px}
+.foto-thumb{width:100%;aspect-ratio:1;object-fit:cover;border-radius:8px;cursor:pointer;border:2px solid transparent;transition:border-color .15s}
+.foto-thumb:hover{border-color:var(--primary)}
+
+/* ── Mobile ── */
+.card{overflow-x:auto}
+@media(max-width:768px){
+  .hamburger{display:flex}
+  .sidebar{position:fixed;left:0;top:0;height:100%;transform:translateX(-100%)}
+  .sidebar.open{transform:translateX(0)}
+  .sidebar-overlay.open{display:block}
+  .content{padding:14px}
+  .grid2,.grid3,.grid4{grid-template-columns:1fr}
+  .priority-bar{flex-direction:column}
+  .modal{padding:16px}
+  .modal-overlay{padding-top:0;align-items:flex-end}
+  .modal{border-radius:16px 16px 0 0;margin-bottom:0;max-height:92vh;overflow-y:auto;width:100%;max-width:100%}
+  .topbar{padding:10px 14px}
+  .metric-value{font-size:20px}
+  td,th{padding:7px 6px}
+  .btn{padding:8px 12px}
+}
 </style>
 </head>
 <body>
@@ -128,12 +188,14 @@ tr:hover td{background:#fafaf8}
 </div>
 <div class="main">
   <div class="topbar">
+    <button class="hamburger" onclick="toggleSidebar()"><i class="ti ti-menu-2"></i></button>
     <span class="topbar-title" id="page-title">Inicio</span>
     <span style="font-size:12px;color:var(--text2)" id="fecha-top"></span>
   </div>
   <div class="content" id="content"></div>
 </div>
 </div>
+<div class="sidebar-overlay" id="sidebar-overlay" onclick="toggleSidebar()"></div>
 
 <div id="modal-overlay" class="modal-overlay" style="display:none" onclick="cerrarModalOverlay(event)">
   <div class="modal" id="modal-inner"></div>
@@ -186,7 +248,16 @@ function ir(p, el){
   document.querySelectorAll('.nav-item').forEach(b=>b.classList.remove('active'));
   if(el) el.classList.add('active');
   document.getElementById('page-title').textContent = titles[p];
-  page = p; render();
+  page = p; render(); cerrarSidebar();
+}
+
+function toggleSidebar(){
+  document.querySelector('.sidebar').classList.toggle('open');
+  document.getElementById('sidebar-overlay').classList.toggle('open');
+}
+function cerrarSidebar(){
+  document.querySelector('.sidebar').classList.remove('open');
+  document.getElementById('sidebar-overlay').classList.remove('open');
 }
 
 function abrirModal(html){ document.getElementById('modal-inner').innerHTML=html; document.getElementById('modal-overlay').style.display='flex'; }
@@ -549,12 +620,21 @@ async function modalOrden(id){
       <div><label>Mano de obra $</label><input type="number" id="f-total" value="${manoObra}" oninput="actualizarTotalOrden()"></div>
       <div style="padding-bottom:10px;font-size:15px;font-weight:700">Total: <span id="gran-total-ord" class="green">${fmt(manoObra)}</span></div>
     </div>
+    <div class="sep"></div>
+    <div class="seccion-title" style="margin-bottom:8px"><i class="ti ti-camera"></i> Fotos del vehículo / repuestos</div>
+    <div id="fotos-existentes-ord" style="margin-bottom:8px"></div>
+    <label style="margin-top:0;cursor:pointer;display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border:1.5px dashed var(--border);border-radius:8px;color:var(--text2)">
+      <i class="ti ti-photo-plus"></i> Seleccionar fotos
+      <input type="file" id="f-fotos" multiple accept="image/*" style="display:none" onchange="previsualizarFotosOrden()">
+    </label>
+    <div id="preview-fotos-ord" class="fotos-grid" style="margin-top:8px"></div>
     <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:20px">
       <button class="btn" onclick="cerrarModal()">Cancelar</button>
-      <button class="btn btn-primary" onclick="guardarOrden('${id||''}')">Guardar</button>
+      <button class="btn btn-primary" onclick="guardarOrden('${id||''}')"><i class="ti ti-device-floppy"></i> Guardar</button>
     </div>`);
   if(o?.cliente_id) filtrarVehsOrden(o.cliente_id, o.vehiculo_id);
   renderRepuestosOrden();
+  if(id) cargarFotosExistentes(id);
 }
 
 function filtrarVehsOrden(cliId, selId){
@@ -649,7 +729,55 @@ async function guardarOrden(id){
       reps.map(r=>({orden_id:ordenId,nombre:r.nombre,cantidad:r.cantidad,precio_unitario:r.precio_unitario,subtotal:r.precio_unitario*r.cantidad,estado:r.estado}))
     );
   }
+  // Subir fotos nuevas
+  if(ordenId){
+    const input = document.getElementById('f-fotos');
+    if(input?.files?.length){
+      for(const file of Array.from(input.files)){
+        const ext = file.name.split('.').pop();
+        const path = `${ordenId}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+        const {error:upErr} = await supa.storage.from('orden-fotos').upload(path, file, {upsert:true});
+        if(!upErr){
+          const {data:urlData} = supa.storage.from('orden-fotos').getPublicUrl(path);
+          await supa.from('orden_fotos').insert({orden_id:ordenId, url:urlData.publicUrl, nombre:file.name});
+        }
+      }
+    }
+  }
   cerrarModal(); await renderOrdenes();
+}
+
+function previsualizarFotosOrden(){
+  const input = document.getElementById('f-fotos');
+  const preview = document.getElementById('preview-fotos-ord');
+  if(!preview||!input?.files) return;
+  preview.innerHTML = '';
+  Array.from(input.files).forEach(file=>{
+    const url = URL.createObjectURL(file);
+    const img = document.createElement('img');
+    img.src = url; img.className = 'foto-thumb';
+    img.onclick = ()=>window.open(url,'_blank');
+    preview.appendChild(img);
+  });
+}
+
+async function cargarFotosExistentes(ordenId){
+  const {data:fotos} = await supa.from('orden_fotos').select('*').eq('orden_id',ordenId).order('created_at');
+  const wrap = document.getElementById('fotos-existentes-ord');
+  if(!wrap||!fotos?.length) return;
+  wrap.innerHTML = `<div class="fotos-grid">${fotos.map(f=>`
+    <div style="position:relative">
+      <img src="${f.url}" class="foto-thumb" onclick="window.open('${f.url}','_blank')">
+      <button onclick="eliminarFotoOrden('${f.id}','${ordenId}')" style="position:absolute;top:2px;right:2px;background:#c0392b;border:none;border-radius:50%;width:20px;height:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0">
+        <i class="ti ti-x" style="font-size:11px;color:#fff"></i>
+      </button>
+    </div>`).join('')}</div>`;
+}
+
+async function eliminarFotoOrden(fotoId, ordenId){
+  if(!confirm('¿Eliminar esta foto?')) return;
+  await supa.from('orden_fotos').delete().eq('id',fotoId);
+  cargarFotosExistentes(ordenId);
 }
 
 async function renderPrioridades(){
@@ -1197,11 +1325,12 @@ function filtrarHistorial(){
 }
 
 async function verHistorialCliente(cliId, nombre){
-  const [{data:vehs},{data:ords},{data:pres},{data:movs}] = await Promise.all([
+  const [{data:vehs},{data:ords},{data:pres},{data:movs},{data:todasFotos}] = await Promise.all([
     supa.from('vehiculos').select('*').eq('cliente_id',cliId),
     supa.from('ordenes').select('*').eq('cliente_id',cliId).order('fecha_ingreso',{ascending:false}),
     supa.from('presupuestos').select('*').eq('cliente_id',cliId).order('fecha',{ascending:false}),
-    supa.from('cuenta_corriente').select('*').eq('cliente_id',cliId).order('fecha',{ascending:false})
+    supa.from('cuenta_corriente').select('*').eq('cliente_id',cliId).order('fecha',{ascending:false}),
+    supa.from('orden_fotos').select('*').in('orden_id',(await supa.from('ordenes').select('id').eq('cliente_id',cliId)).data?.map(o=>o.id)||[])
   ]);
   const saldo = movs?.reduce((a,m)=>m.tipo==='debito'?a+Number(m.monto):a-Number(m.monto),0)||0;
   const totalFacturado = ords?.reduce((a,o)=>a+Number(o.total||0),0)||0;
@@ -1220,9 +1349,18 @@ async function verHistorialCliente(cliId, nombre){
       </div>`).join(''):'<p style="font-size:13px;color:var(--text2);margin-bottom:12px">Sin vehículos</p>'}
     <div class="sep"></div>
     <div style="font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--text2);margin-bottom:8px"><i class="ti ti-file-text"></i> Órdenes de trabajo</div>
-    ${ords?.length?`<table><thead><tr><th>#</th><th>Fecha</th><th>Vehículo</th><th>Estado</th><th>Total</th></tr></thead><tbody>
-    ${ords.map(o=>`<tr><td><strong>#${o.numero}</strong></td><td>${fmtFecha(o.fecha_ingreso)}</td><td>${o.vehiculo_patente||''} ${o.vehiculo_marca||''} ${o.vehiculo_modelo||''}</td><td>${badgeEstado(o.estado)}</td><td><strong>${fmt(o.total)}</strong></td></tr>`).join('')}
-    </tbody></table>`:'<p style="font-size:13px;color:var(--text2)">Sin órdenes</p>'}
+    ${ords?.length?`<div class="table-wrap"><table><thead><tr><th>#</th><th>Fecha</th><th>Vehículo</th><th>Estado</th><th>Total</th><th>Fotos</th></tr></thead><tbody>
+    ${ords.map(o=>{
+      const fotosOrden = (todasFotos||[]).filter(f=>f.orden_id===o.id);
+      return `<tr>
+        <td><strong>#${o.numero}</strong></td>
+        <td>${fmtFecha(o.fecha_ingreso)}</td>
+        <td>${o.vehiculo_patente||''} ${o.vehiculo_marca||''} ${o.vehiculo_modelo||''}</td>
+        <td>${badgeEstado(o.estado)}</td>
+        <td><strong>${fmt(o.total)}</strong></td>
+        <td>${fotosOrden.length?`<div style="display:flex;gap:4px;flex-wrap:wrap">${fotosOrden.map(f=>`<img src="${f.url}" onclick="window.open('${f.url}','_blank')" style="width:36px;height:36px;object-fit:cover;border-radius:4px;cursor:pointer;border:1px solid var(--border)">`).join('')}</div>`:'<span style="color:var(--text2);font-size:12px">—</span>'}</td>
+      </tr>`;}).join('')}
+    </tbody></table></div>`:'<p style="font-size:13px;color:var(--text2)">Sin órdenes</p>'}
     <div class="sep"></div>
     <div style="font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--text2);margin-bottom:8px"><i class="ti ti-calculator"></i> Presupuestos</div>
     ${pres?.length?`<table><thead><tr><th>#</th><th>Fecha</th><th>Estado</th><th>Total</th></tr></thead><tbody>
