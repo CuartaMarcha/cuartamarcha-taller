@@ -440,11 +440,21 @@ async function modalOrden(id){
     supa.from('clientes').select('id,nombre,apellido').order('nombre'),
     supa.from('vehiculos').select('id,patente,marca,modelo,cliente_id').order('patente')
   ]);
+  window._vehsOrden = vehs||[];
   const o = id?(window._ordenes||[]).find(x=>x.id===id):{};
+  let manoObra = o?.total||0;
+  if(id){
+    const {data:reps} = await supa.from('orden_repuestos').select('*').eq('orden_id',id);
+    window._ordenRepuestos = (reps||[]).map(r=>({nombre:r.nombre,cantidad:Number(r.cantidad),precio_unitario:Number(r.precio_unitario),estado:r.estado}));
+    const totalReps = window._ordenRepuestos.reduce((a,r)=>a+r.precio_unitario*r.cantidad,0);
+    manoObra = Math.max(0,(o?.total||0)-totalReps);
+  } else {
+    window._ordenRepuestos = [];
+  }
   abrirModal(`
     <div class="modal-title"><span>${id?'Editar orden #'+o.numero:'Nueva orden de trabajo'}</span><button class="btn btn-sm" onclick="cerrarModal()"><i class="ti ti-x"></i></button></div>
     <div class="grid2">
-      <div><label>Cliente *</label><select id="f-cli" onchange="filtrarVehsOrden(${JSON.stringify(vehs)})">
+      <div><label>Cliente *</label><select id="f-cli" onchange="filtrarVehsOrden()">
         <option value="">Seleccioná</option>
         ${cls?.map(c=>`<option value="${c.id}" ${o?.cliente_id===c.id?'selected':''}>${c.nombre} ${c.apellido}</option>`).join('')}
       </select></div>
@@ -472,30 +482,102 @@ async function modalOrden(id){
         <option value="Marcelo" ${o?.mecanico==='Marcelo'?'selected':''}>Marcelo</option>
       </select></div>
     </div>
-    <div><label>KM al ingreso</label><input id="f-km" value="${o?.kilometraje_ingreso||''}"></div>
+    <div class="grid2">
+      <div><label>KM al ingreso</label><input id="f-km" value="${o?.kilometraje_ingreso||''}"></div>
+      <div><label>Tiempo real trabajado (hs)</label><input type="number" id="f-tiempo" value="${o?.tiempo_real_horas||''}" step="0.5" min="0" placeholder="0"></div>
+    </div>
     <div><label>Descripción del cliente</label><textarea id="f-desc" rows="2">${o?.descripcion_cliente||''}</textarea></div>
     <div><label>Trabajos realizados</label><textarea id="f-trab" rows="3">${o?.trabajos_realizados||''}</textarea></div>
+    <div><label>Diagnóstico del mecánico</label><textarea id="f-diag" rows="3">${o?.diagnostico_mecanico||''}</textarea></div>
     <div><label>Observaciones internas</label><textarea id="f-obs" rows="2">${o?.observaciones||''}</textarea></div>
     <div class="grid2">
       <div><label>Fecha ingreso</label><input type="date" id="f-fing" value="${o?.fecha_ingreso||hoy()}"></div>
       <div><label>Fecha entrega estimada</label><input type="date" id="f-fent" value="${o?.fecha_entrega||''}"></div>
     </div>
-    <div><label>Total $</label><input type="number" id="f-total" value="${o?.total||0}"></div>
+    <div style="margin-top:12px;display:flex;align-items:center;gap:8px">
+      <input type="checkbox" id="f-autorizo" style="width:auto" ${o?.cliente_autorizo?'checked':''}>
+      <label style="margin:0;cursor:pointer" for="f-autorizo">Cliente autorizó los trabajos</label>
+    </div>
+    <div class="sep"></div>
+    <div class="seccion-title" style="margin-bottom:8px"><i class="ti ti-package"></i> Repuestos</div>
+    <div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap;align-items:flex-end">
+      <div style="flex:2;min-width:120px"><label style="margin-top:0">Repuesto</label><input id="f-rep-nombre" placeholder="Nombre del repuesto"></div>
+      <div style="width:68px"><label style="margin-top:0">Cant.</label><input type="number" id="f-rep-cant" value="1" min="1"></div>
+      <div style="width:110px"><label style="margin-top:0">Precio unit.</label><input type="number" id="f-rep-precio" placeholder="0" min="0"></div>
+      <div style="width:120px"><label style="margin-top:0">Estado</label><select id="f-rep-estado">
+        <option value="pendiente">Pendiente</option>
+        <option value="pedido">Pedido</option>
+        <option value="disponible">Disponible</option>
+      </select></div>
+      <button class="btn btn-primary btn-sm" onclick="agregarRepuestoOrden()"><i class="ti ti-plus"></i> Agregar</button>
+    </div>
+    <div id="lista-repuestos-orden"></div>
+    <div style="text-align:right;font-size:13px;font-weight:600;margin-top:6px;color:var(--text2)">
+      Total repuestos: <span id="total-repuestos-ord" class="green">$0</span>
+    </div>
+    <div class="sep"></div>
+    <div class="grid2" style="align-items:flex-end">
+      <div><label>Mano de obra $</label><input type="number" id="f-total" value="${manoObra}" oninput="actualizarTotalOrden()"></div>
+      <div style="padding-bottom:10px;font-size:15px;font-weight:700">Total: <span id="gran-total-ord" class="green">${fmt(manoObra)}</span></div>
+    </div>
     <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:20px">
       <button class="btn" onclick="cerrarModal()">Cancelar</button>
       <button class="btn btn-primary" onclick="guardarOrden('${id||''}')">Guardar</button>
     </div>`);
-  if(o?.cliente_id) filtrarVehsOrden(vehs, o.cliente_id, o.vehiculo_id);
+  if(o?.cliente_id) filtrarVehsOrden(o.cliente_id, o.vehiculo_id);
+  renderRepuestosOrden();
 }
 
-function filtrarVehsOrden(vehs, cliId, selId){
+function filtrarVehsOrden(cliId, selId){
   const cli = cliId||document.getElementById('f-cli')?.value;
-  const filtrados = (vehs||[]).filter(v=>v.cliente_id===cli);
+  const filtrados = (window._vehsOrden||[]).filter(v=>v.cliente_id===cli);
   const sel = document.getElementById('f-veh');
   if(!sel)return;
   sel.innerHTML = filtrados.length
     ? filtrados.map(v=>`<option value="${v.id}" ${v.id===selId?'selected':''}>${v.patente} - ${v.marca} ${v.modelo}</option>`).join('')
     : '<option value="">Sin vehículos para este cliente</option>';
+}
+
+function agregarRepuestoOrden(){
+  const nombre = document.getElementById('f-rep-nombre').value.trim();
+  const cantidad = Number(document.getElementById('f-rep-cant').value)||1;
+  const precio = Number(document.getElementById('f-rep-precio').value)||0;
+  const estado = document.getElementById('f-rep-estado').value;
+  if(!nombre){alert('Ingresá el nombre del repuesto');return;}
+  window._ordenRepuestos.push({nombre,cantidad,precio_unitario:precio,estado});
+  document.getElementById('f-rep-nombre').value='';
+  document.getElementById('f-rep-cant').value='1';
+  document.getElementById('f-rep-precio').value='';
+  renderRepuestosOrden();
+}
+
+function renderRepuestosOrden(){
+  const lista = document.getElementById('lista-repuestos-orden');
+  if(!lista)return;
+  const reps = window._ordenRepuestos||[];
+  lista.innerHTML = reps.length ? `<table style="font-size:12px"><thead><tr><th>Repuesto</th><th>Cant.</th><th>P. Unit.</th><th>Subtotal</th><th>Estado</th><th></th></tr></thead><tbody>
+    ${reps.map((r,i)=>`<tr>
+      <td>${r.nombre}</td>
+      <td>${r.cantidad}</td>
+      <td>${fmt(r.precio_unitario)}</td>
+      <td><strong>${fmt(r.precio_unitario*r.cantidad)}</strong></td>
+      <td>${r.estado==='disponible'?'<span class="badge badge-green">Disponible</span>':r.estado==='pedido'?'<span class="badge badge-blue">Pedido</span>':'<span class="badge badge-amber">Pendiente</span>'}</td>
+      <td><button class="btn btn-sm btn-danger" onclick="window._ordenRepuestos.splice(${i},1);renderRepuestosOrden()"><i class="ti ti-trash"></i></button></td>
+    </tr>`).join('')}
+    </tbody></table>`
+    :'<p style="font-size:12px;color:var(--text2);padding:6px 0">Sin repuestos agregados</p>';
+  const total = reps.reduce((a,r)=>a+r.precio_unitario*r.cantidad,0);
+  const t = document.getElementById('total-repuestos-ord');
+  if(t) t.textContent = fmt(total);
+  actualizarTotalOrden();
+}
+
+function actualizarTotalOrden(){
+  const mo = Number(document.getElementById('f-total')?.value)||0;
+  const reps = window._ordenRepuestos||[];
+  const totalReps = reps.reduce((a,r)=>a+r.precio_unitario*r.cantidad,0);
+  const gt = document.getElementById('gran-total-ord');
+  if(gt) gt.textContent = fmt(mo+totalReps);
 }
 
 async function guardarOrden(id){
@@ -504,9 +586,40 @@ async function guardarOrden(id){
   if(!cliId||!vehId){alert('Seleccioná cliente y vehículo');return;}
   const {data:cls} = await supa.from('clientes').select('nombre,apellido').eq('id',cliId).single();
   const {data:veh} = await supa.from('vehiculos').select('patente,marca,modelo').eq('id',vehId).single();
-  const data={cliente_id:cliId,vehiculo_id:vehId,cliente_nombre:`${cls?.nombre} ${cls?.apellido}`,vehiculo_patente:veh?.patente,vehiculo_marca:veh?.marca,vehiculo_modelo:veh?.modelo,prioridad:document.getElementById('f-pri').value,estado:document.getElementById('f-est').value,mecanico:document.getElementById('f-mec').value,kilometraje_ingreso:document.getElementById('f-km').value,descripcion_cliente:document.getElementById('f-desc').value,trabajos_realizados:document.getElementById('f-trab').value,observaciones:document.getElementById('f-obs').value,fecha_ingreso:document.getElementById('f-fing').value,fecha_entrega:document.getElementById('f-fent').value,total:Number(document.getElementById('f-total').value)||0};
-  if(id){await supa.from('ordenes').update(data).eq('id',id);}
-  else{await supa.from('ordenes').insert(data);}
+  const reps = window._ordenRepuestos||[];
+  const totalReps = reps.reduce((a,r)=>a+r.precio_unitario*r.cantidad,0);
+  const manoObra = Number(document.getElementById('f-total').value)||0;
+  const data={
+    cliente_id:cliId,vehiculo_id:vehId,
+    cliente_nombre:`${cls?.nombre} ${cls?.apellido}`,
+    vehiculo_patente:veh?.patente,vehiculo_marca:veh?.marca,vehiculo_modelo:veh?.modelo,
+    prioridad:document.getElementById('f-pri').value,
+    estado:document.getElementById('f-est').value,
+    mecanico:document.getElementById('f-mec').value,
+    kilometraje_ingreso:document.getElementById('f-km').value,
+    descripcion_cliente:document.getElementById('f-desc').value,
+    trabajos_realizados:document.getElementById('f-trab').value,
+    diagnostico_mecanico:document.getElementById('f-diag').value,
+    observaciones:document.getElementById('f-obs').value,
+    fecha_ingreso:document.getElementById('f-fing').value,
+    fecha_entrega:document.getElementById('f-fent').value,
+    tiempo_real_horas:Number(document.getElementById('f-tiempo').value)||null,
+    cliente_autorizo:document.getElementById('f-autorizo').checked,
+    total:manoObra+totalReps
+  };
+  let ordenId = id;
+  if(id){
+    await supa.from('ordenes').update(data).eq('id',id);
+  } else {
+    const {data:nueva} = await supa.from('ordenes').insert(data).select().single();
+    ordenId = nueva?.id;
+  }
+  if(ordenId){
+    await supa.from('orden_repuestos').delete().eq('orden_id',ordenId);
+    if(reps.length) await supa.from('orden_repuestos').insert(
+      reps.map(r=>({orden_id:ordenId,nombre:r.nombre,cantidad:r.cantidad,precio_unitario:r.precio_unitario,subtotal:r.precio_unitario*r.cantidad,estado:r.estado}))
+    );
+  }
   cerrarModal(); await renderOrdenes();
 }
 
@@ -547,8 +660,8 @@ async function renderTurnos(){
     <button class="btn btn-primary" onclick="modalTurno()"><i class="ti ti-plus"></i> Nuevo turno</button>
   </div>
   <div class="card" style="padding:0">
-  ${proximos.length?`<table><thead><tr><th>Fecha</th><th>Hora</th><th>Cliente</th><th>Trabajo</th><th>Mecánico</th><th>Duración</th><th>Estado</th><th></th></tr></thead><tbody>
-  ${proximos.map(t=>`<tr><td><strong>${fmtFecha(t.fecha)}</strong></td><td>${t.hora?.slice(0,5)}</td><td>${t.cliente_nombre||'-'}</td><td>${t.tipo_trabajo}</td><td>${t.mecanico||'-'}</td><td>${t.duracion_estimada} min</td><td>${badgeEstado(t.estado)}</td>
+  ${proximos.length?`<table><thead><tr><th>Fecha</th><th>Hora</th><th>Cliente</th><th>Vehículo</th><th>Trabajo</th><th>Mecánico</th><th>Duración</th><th>Estado</th><th></th></tr></thead><tbody>
+  ${proximos.map(t=>`<tr><td><strong>${fmtFecha(t.fecha)}</strong></td><td>${t.hora?.slice(0,5)}</td><td>${t.cliente_nombre||'-'}</td><td style="font-size:12px">${t.vehiculo_patente?`<strong>${t.vehiculo_patente}</strong> ${t.vehiculo_modelo||''}`:'-'}</td><td>${t.tipo_trabajo}</td><td>${t.mecanico||'-'}</td><td>${t.duracion_estimada} min</td><td>${badgeEstado(t.estado)}</td>
     <td style="display:flex;gap:4px">
       <button class="btn btn-sm" onclick="modalTurno('${t.id}')"><i class="ti ti-edit"></i></button>
       <button class="btn btn-sm btn-danger" onclick="eliminarTurno('${t.id}')"><i class="ti ti-trash"></i></button>
@@ -558,13 +671,24 @@ async function renderTurnos(){
 }
 
 async function modalTurno(id){
-  const {data:cls} = await supa.from('clientes').select('id,nombre,apellido').order('nombre');
+  const [{data:cls},{data:vehs}] = await Promise.all([
+    supa.from('clientes').select('id,nombre,apellido').order('nombre'),
+    supa.from('vehiculos').select('id,patente,marca,modelo,cliente_id').order('patente')
+  ]);
+  window._vehsTurno = vehs||[];
   const t = id?(window._turnos||[]).find(x=>x.id===id):{};
   abrirModal(`
     <div class="modal-title"><span>${id?'Editar turno':'Nuevo turno'}</span><button class="btn btn-sm" onclick="cerrarModal()"><i class="ti ti-x"></i></button></div>
-    <div><label>Cliente</label><select id="f-cli-t"><option value="">Sin cliente registrado</option>
-      ${cls?.map(c=>`<option value="${c.id}" data-nombre="${c.nombre} ${c.apellido}" ${t?.cliente_id===c.id?'selected':''}>${c.nombre} ${c.apellido}</option>`).join('')}
-    </select></div>
+    <div class="grid2">
+      <div><label>Cliente</label><select id="f-cli-t" onchange="filtrarVehsTurno()">
+        <option value="">Sin cliente registrado</option>
+        ${cls?.map(c=>`<option value="${c.id}" data-nombre="${c.nombre} ${c.apellido}" ${t?.cliente_id===c.id?'selected':''}>${c.nombre} ${c.apellido}</option>`).join('')}
+      </select></div>
+      <div><label>Vehículo</label><select id="f-veh-t">
+        <option value="">Sin vehículo</option>
+        ${t?.vehiculo_id?`<option value="${t.vehiculo_id}" selected>${t.vehiculo_patente||''} ${t.vehiculo_marca||''} ${t.vehiculo_modelo||''}</option>`:''}
+      </select></div>
+    </div>
     <div class="grid2">
       <div><label>Fecha *</label><input type="date" id="f-fecha-t" value="${t?.fecha||hoy()}"></div>
       <div><label>Hora *</label><input type="time" id="f-hora-t" value="${t?.hora?.slice(0,5)||'09:00'}"></div>
@@ -592,11 +716,38 @@ async function modalTurno(id){
       <button class="btn" onclick="cerrarModal()">Cancelar</button>
       <button class="btn btn-primary" onclick="guardarTurno('${id||''}')">Guardar</button>
     </div>`);
+  if(t?.cliente_id) filtrarVehsTurno(t.cliente_id, t.vehiculo_id);
+}
+
+function filtrarVehsTurno(cliId, selId){
+  const cli = cliId||document.getElementById('f-cli-t')?.value;
+  const filtrados = (window._vehsTurno||[]).filter(v=>v.cliente_id===cli);
+  const sel = document.getElementById('f-veh-t');
+  if(!sel)return;
+  sel.innerHTML = `<option value="">Sin vehículo</option>`+(filtrados.length
+    ? filtrados.map(v=>`<option value="${v.id}" ${v.id===selId?'selected':''}>${v.patente} - ${v.marca} ${v.modelo}</option>`).join('')
+    : '<option value="" disabled>Sin vehículos para este cliente</option>');
 }
 
 async function guardarTurno(id){
   const cliSel = document.getElementById('f-cli-t');
-  const data={cliente_id:cliSel.value||null,cliente_nombre:cliSel.options[cliSel.selectedIndex]?.dataset?.nombre||'',fecha:document.getElementById('f-fecha-t').value,hora:document.getElementById('f-hora-t').value,tipo_trabajo:document.getElementById('f-tipo-t').value.trim(),duracion_estimada:Number(document.getElementById('f-dur-t').value)||60,mecanico:document.getElementById('f-mec-t').value,estado:document.getElementById('f-est-t').value,observaciones:document.getElementById('f-obs-t').value};
+  const vehId = document.getElementById('f-veh-t').value;
+  const veh = vehId?(window._vehsTurno||[]).find(v=>v.id===vehId):null;
+  const data={
+    cliente_id:cliSel.value||null,
+    cliente_nombre:cliSel.options[cliSel.selectedIndex]?.dataset?.nombre||'',
+    vehiculo_id:vehId||null,
+    vehiculo_patente:veh?.patente||null,
+    vehiculo_marca:veh?.marca||null,
+    vehiculo_modelo:veh?.modelo||null,
+    fecha:document.getElementById('f-fecha-t').value,
+    hora:document.getElementById('f-hora-t').value,
+    tipo_trabajo:document.getElementById('f-tipo-t').value.trim(),
+    duracion_estimada:Number(document.getElementById('f-dur-t').value)||60,
+    mecanico:document.getElementById('f-mec-t').value,
+    estado:document.getElementById('f-est-t').value,
+    observaciones:document.getElementById('f-obs-t').value
+  };
   if(!data.fecha||!data.hora||!data.tipo_trabajo){alert('Completá fecha, hora y tipo de trabajo');return;}
   if(id){await supa.from('turnos').update(data).eq('id',id);}
   else{await supa.from('turnos').insert(data);}
@@ -706,10 +857,11 @@ async function modalPresupuesto(){
     supa.from('precios').select('*').order('descripcion')
   ]);
   window._presup_items=[];
+  window._vehsPres = vehs||[];
   abrirModal(`
     <div class="modal-title"><span>Nuevo presupuesto</span><button class="btn btn-sm" onclick="cerrarModal()"><i class="ti ti-x"></i></button></div>
     <div class="grid2">
-      <div><label>Cliente *</label><select id="fp-cli" onchange="filtrarVehsPres(${JSON.stringify(vehs)})">
+      <div><label>Cliente *</label><select id="fp-cli" onchange="filtrarVehsPres()">
         <option value="">Seleccioná</option>
         ${cls?.map(c=>`<option value="${c.id}" data-nombre="${c.nombre} ${c.apellido}">${c.nombre} ${c.apellido}</option>`).join('')}
       </select></div>
@@ -735,9 +887,9 @@ async function modalPresupuesto(){
     </div>`);
 }
 
-function filtrarVehsPres(vehs){
+function filtrarVehsPres(){
   const cliId = document.getElementById('fp-cli').value;
-  const filtrados = (vehs||[]).filter(v=>v.cliente_id===cliId);
+  const filtrados = (window._vehsPres||[]).filter(v=>v.cliente_id===cliId);
   const sel = document.getElementById('fp-veh');
   sel.innerHTML = filtrados.length?filtrados.map(v=>`<option value="${v.id}">${v.patente} - ${v.marca} ${v.modelo}</option>`).join(''):'<option value="">Sin vehículos</option>';
 }
