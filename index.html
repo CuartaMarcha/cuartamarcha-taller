@@ -1334,8 +1334,143 @@ async function generarPresupuestoPDF(id){
 
 async function aprobarPresupuesto(id){
   await supa.from('presupuestos').update({estado:'aprobado'}).eq('id',id);
-  cerrarModal(); await renderPresupuestos();
+  const {data:p} = await supa.from('presupuestos').select('*').eq('id',id).single();
+  cerrarModal();
+  // Preguntar si crear orden y/o turno
+  abrirModal(`
+    <div class="modal-title"><span><i class="ti ti-check" style="color:var(--primary)"></i> Presupuesto aprobado</span><button class="btn btn-sm" onclick="cerrarModal()"><i class="ti ti-x"></i></button></div>
+    <p style="color:var(--text2);font-size:13px;margin-bottom:20px">¿Qué querés hacer a continuación?</p>
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <button class="btn btn-primary" style="justify-content:flex-start;padding:14px 16px" onclick="crearOrdenDesdePresupuesto('${id}',false)">
+        <i class="ti ti-file-plus" style="font-size:20px"></i>
+        <div style="text-align:left"><div style="font-weight:600">Crear orden de trabajo</div><div style="font-size:12px;opacity:.8">Se genera la orden con los datos del presupuesto</div></div>
+      </button>
+      <button class="btn btn-primary" style="justify-content:flex-start;padding:14px 16px" onclick="crearOrdenDesdePresupuesto('${id}',true)">
+        <i class="ti ti-calendar-plus" style="font-size:20px"></i>
+        <div style="text-align:left"><div style="font-weight:600">Crear orden + agendar turno</div><div style="font-size:12px;opacity:.8">Se genera la orden y podés elegir fecha y hora</div></div>
+      </button>
+      <button class="btn" style="justify-content:flex-start;padding:14px 16px" onclick="cerrarModal();renderPresupuestos()">
+        <i class="ti ti-arrow-right" style="font-size:20px"></i>
+        <div style="text-align:left"><div style="font-weight:600">Solo marcar como aprobado</div><div style="font-size:12px;color:var(--text2)">Sin crear orden ni turno por ahora</div></div>
+      </button>
+    </div>`);
 }
+
+async function crearOrdenDesdePresupuesto(presId, conTurno){
+  const [{data:p},{data:items}] = await Promise.all([
+    supa.from('presupuestos').select('*').eq('id',presId).single(),
+    supa.from('presupuesto_items').select('*').eq('presupuesto_id',presId)
+  ]);
+  // Crear la orden
+  const trabajos = (items||[]).map(it=>`- ${it.descripcion} (x${it.cantidad})`).join('\n');
+  const {data:nueva} = await supa.from('ordenes').insert({
+    cliente_id: p.cliente_id||null,
+    cliente_nombre: p.cliente_nombre||'Consumidor Final',
+    vehiculo_id: p.vehiculo_id||null,
+    descripcion_cliente: trabajos,
+    trabajos_realizados: '',
+    estado: 'recibido',
+    prioridad: 'normal',
+    fecha_ingreso: hoy(),
+    total: p.total,
+    observaciones: `Generada desde presupuesto #${p.numero}`
+  }).select().single();
+  // Insertar repuestos como items de la orden también
+  if(nueva && items?.length){
+    await supa.from('orden_repuestos').insert(
+      items.map(it=>({orden_id:nueva.id,nombre:it.descripcion,cantidad:it.cantidad,precio_unitario:it.precio_unitario,subtotal:it.subtotal,estado:'pendiente'}))
+    );
+  }
+  if(!conTurno){
+    cerrarModal();
+    alert(`Orden #${nueva?.numero||''} creada correctamente`);
+    await renderPresupuestos();
+    return;
+  }
+  // Mostrar modal para agendar turno
+  const [{data:cls},{data:vehs}] = await Promise.all([
+    supa.from('clientes').select('id,nombre,apellido').order('nombre'),
+    supa.from('vehiculos').select('id,patente,marca,modelo,cliente_id').order('patente')
+  ]);
+  window._vehsTurno = vehs||[];
+  abrirModal(`
+    <div class="modal-title"><span><i class="ti ti-calendar-plus"></i> Agendar turno</span><button class="btn btn-sm" onclick="cerrarModal()"><i class="ti ti-x"></i></button></div>
+    <p style="font-size:12px;color:var(--text2);margin-bottom:12px">Orden #${nueva?.numero||''} creada. Completá los datos del turno.</p>
+    <div class="grid2">
+      <div>
+        <label>Cliente</label>
+        <select id="f-cli-t" onchange="toggleClienteLibre();filtrarVehsTurno()">
+          <option value="${p.cliente_id||''}" ${p.cliente_id?'selected':''}>${p.cliente_nombre||'— Sin cliente registrado —'}</option>
+          ${cls?.filter(c=>c.id!==p.cliente_id).map(c=>`<option value="${c.id}">${c.nombre} ${c.apellido}</option>`).join('')}
+        </select>
+        <div id="wrap-nombre-libre" style="margin-top:6px;display:none">
+          <input id="f-nombre-libre-t" placeholder="Nombre del cliente (opcional)">
+        </div>
+      </div>
+      <div>
+        <label>Vehículo</label>
+        <select id="f-veh-t" onchange="toggleVehLibre()">
+          <option value="${p.vehiculo_id||''}">Sin vehículo</option>
+        </select>
+        <div id="wrap-veh-libre" style="margin-top:6px;display:none">
+          <input id="f-veh-libre-t" placeholder="Patente / descripción">
+        </div>
+      </div>
+    </div>
+    <div class="grid2">
+      <div><label>Fecha *</label><input type="date" id="f-fecha-t" value="${hoy()}"></div>
+      <div><label>Hora *</label><input type="time" id="f-hora-t" value="09:00"></div>
+    </div>
+    <div class="grid2">
+      <div><label>Tipo de trabajo</label><input id="f-tipo-t" value="${(items||[]).map(i=>i.descripcion).join(', ').slice(0,60)}" placeholder="Trabajo a realizar"></div>
+      <div><label>Duración estimada (min)</label><input type="number" id="f-dur-t" value="60"></div>
+    </div>
+    <div class="grid2">
+      <div><label>Mecánico</label><select id="f-mec-t">
+        <option value="">Sin asignar</option>
+        <option value="Angel">Angel</option>
+        <option value="Matias">Matias</option>
+        <option value="Marcelo">Marcelo</option>
+      </select></div>
+      <div><label>Teléfono de contacto</label><input id="f-tel-t" placeholder="Opcional"></div>
+    </div>
+    <div><label>Observaciones</label><textarea id="f-obs-t" rows="2">Generado desde presupuesto #${p.numero}</textarea></div>
+    <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:20px">
+      <button class="btn" onclick="cerrarModal();renderPresupuestos()">Omitir turno</button>
+      <button class="btn btn-primary" onclick="guardarTurnoDesdePresupuesto('${p.cliente_id||''}','${p.cliente_nombre||''}','${p.vehiculo_id||''}')"><i class="ti ti-check"></i> Guardar turno</button>
+    </div>`);
+  if(p.vehiculo_id) filtrarVehsTurno(p.cliente_id, p.vehiculo_id);
+}
+
+async function guardarTurnoDesdePresupuesto(cliId, cliNombreOrig, vehIdOrig){
+  const cliSel = document.getElementById('f-cli-t');
+  const vehId = document.getElementById('f-veh-t').value||null;
+  const veh = vehId?(window._vehsTurno||[]).find(v=>v.id===vehId):null;
+  const vehLibre = document.getElementById('f-veh-libre-t')?.value?.trim()||'';
+  const nombreLibre = document.getElementById('f-nombre-libre-t')?.value?.trim()||'';
+  const data={
+    cliente_id: cliSel?.value||null,
+    cliente_nombre: cliSel?.value ? (cliSel.options[cliSel.selectedIndex]?.dataset?.nombre||cliNombreOrig) : (nombreLibre||cliNombreOrig),
+    vehiculo_id: vehId,
+    vehiculo_patente: veh?.patente||(vehLibre)||null,
+    vehiculo_marca: veh?.marca||null,
+    vehiculo_modelo: veh?.modelo||null,
+    fecha: document.getElementById('f-fecha-t').value,
+    hora: document.getElementById('f-hora-t').value,
+    tipo_trabajo: document.getElementById('f-tipo-t').value.trim(),
+    duracion_estimada: Number(document.getElementById('f-dur-t').value)||60,
+    mecanico: document.getElementById('f-mec-t').value,
+    estado: 'confirmado',
+    telefono_contacto: document.getElementById('f-tel-t')?.value?.trim()||null,
+    observaciones: document.getElementById('f-obs-t').value
+  };
+  if(!data.fecha||!data.hora){alert('Completá fecha y hora');return;}
+  await supa.from('turnos').insert(data);
+  cerrarModal();
+  alert('Orden y turno creados correctamente');
+  await renderPresupuestos();
+}
+
 async function rechazarPresupuesto(id){
   await supa.from('presupuestos').update({estado:'rechazado'}).eq('id',id);
   cerrarModal(); await renderPresupuestos();
