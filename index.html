@@ -708,17 +708,30 @@ async function modalTurno(id){
   const t = id?(window._turnos||[]).find(x=>x.id===id):{};
   abrirModal(`
     <div class="modal-title"><span>${id?'Editar turno':'Nuevo turno'}</span><button class="btn btn-sm" onclick="cerrarModal()"><i class="ti ti-x"></i></button></div>
+    <p style="font-size:12px;color:var(--text2);margin-bottom:12px">Solo fecha, hora y tipo de trabajo son obligatorios. El cliente y vehículo son opcionales.</p>
     <div class="grid2">
-      <div><label>Cliente</label><select id="f-cli-t" onchange="filtrarVehsTurno()">
-        <option value="">Sin cliente registrado</option>
-        ${cls?.map(c=>`<option value="${c.id}" data-nombre="${c.nombre} ${c.apellido}" ${t?.cliente_id===c.id?'selected':''}>${c.nombre} ${c.apellido}</option>`).join('')}
-      </select></div>
-      <div><label>Vehículo</label><select id="f-veh-t">
-        <option value="">Sin vehículo</option>
-        ${t?.vehiculo_id?`<option value="${t.vehiculo_id}" selected>${t.vehiculo_patente||''} ${t.vehiculo_marca||''} ${t.vehiculo_modelo||''}</option>`:''}
-      </select></div>
+      <div>
+        <label>Cliente registrado</label>
+        <select id="f-cli-t" onchange="toggleClienteLibre();filtrarVehsTurno()">
+          <option value="">— Sin cliente registrado —</option>
+          ${cls?.map(c=>`<option value="${c.id}" data-nombre="${c.nombre} ${c.apellido}" ${t?.cliente_id===c.id?'selected':''}>${c.nombre} ${c.apellido}</option>`).join('')}
+        </select>
+        <div id="wrap-nombre-libre" style="margin-top:6px;${!t?.cliente_id&&t?.cliente_nombre?'':'display:none'}">
+          <input id="f-nombre-libre-t" placeholder="Nombre del cliente (opcional)" value="${!t?.cliente_id?t?.cliente_nombre||'':''}">
+        </div>
+      </div>
+      <div>
+        <label>Vehículo registrado</label>
+        <select id="f-veh-t" onchange="toggleVehLibre()">
+          <option value="">— Sin vehículo registrado —</option>
+          ${t?.vehiculo_id?`<option value="${t.vehiculo_id}" selected>${t.vehiculo_patente||''} ${t.vehiculo_marca||''} ${t.vehiculo_modelo||''}</option>`:''}
+        </select>
+        <div id="wrap-veh-libre" style="margin-top:6px;${!t?.vehiculo_id&&t?.vehiculo_patente?'':'display:none'}">
+          <input id="f-veh-libre-t" placeholder="Patente / descripción (opcional)" value="${!t?.vehiculo_id?t?.vehiculo_patente||'':''}">
+        </div>
+      </div>
     </div>
-    <div class="grid2">
+    <div class="grid2" style="margin-top:4px">
       <div><label>Fecha *</label><input type="date" id="f-fecha-t" value="${t?.fecha||hoy()}"></div>
       <div><label>Hora *</label><input type="time" id="f-hora-t" value="${t?.hora?.slice(0,5)||'09:00'}"></div>
     </div>
@@ -740,12 +753,26 @@ async function modalTurno(id){
         <option value="entregado" ${t?.estado==='entregado'?'selected':''}>Entregado</option>
       </select></div>
     </div>
+    <div><label>Teléfono de contacto</label><input id="f-tel-t" value="${t?.telefono_contacto||''}" placeholder="Opcional, para confirmar el turno"></div>
     <div><label>Observaciones</label><textarea id="f-obs-t" rows="2">${t?.observaciones||''}</textarea></div>
     <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:20px">
       <button class="btn" onclick="cerrarModal()">Cancelar</button>
       <button class="btn btn-primary" onclick="guardarTurno('${id||''}')">Guardar</button>
     </div>`);
   if(t?.cliente_id) filtrarVehsTurno(t.cliente_id, t.vehiculo_id);
+}
+
+function toggleClienteLibre(){
+  const val = document.getElementById('f-cli-t')?.value;
+  const wrap = document.getElementById('wrap-nombre-libre');
+  if(wrap) wrap.style.display = val ? 'none' : 'block';
+  if(val) filtrarVehsTurno();
+}
+
+function toggleVehLibre(){
+  const val = document.getElementById('f-veh-t')?.value;
+  const wrap = document.getElementById('wrap-veh-libre');
+  if(wrap) wrap.style.display = val ? 'none' : 'block';
 }
 
 function filtrarVehsTurno(cliId, selId){
@@ -760,13 +787,20 @@ function filtrarVehsTurno(cliId, selId){
 
 async function guardarTurno(id){
   const cliSel = document.getElementById('f-cli-t');
-  const vehId = document.getElementById('f-veh-t').value;
+  const cliId = cliSel.value||null;
+  const cliNombreRegistrado = cliSel.options[cliSel.selectedIndex]?.dataset?.nombre||'';
+  const cliNombreLibre = document.getElementById('f-nombre-libre-t')?.value?.trim()||'';
+  const cliNombre = cliId ? cliNombreRegistrado : cliNombreLibre;
+
+  const vehId = document.getElementById('f-veh-t').value||null;
   const veh = vehId?(window._vehsTurno||[]).find(v=>v.id===vehId):null;
+  const vehLibre = document.getElementById('f-veh-libre-t')?.value?.trim()||'';
+
   const data={
-    cliente_id:cliSel.value||null,
-    cliente_nombre:cliSel.options[cliSel.selectedIndex]?.dataset?.nombre||'',
-    vehiculo_id:vehId||null,
-    vehiculo_patente:veh?.patente||null,
+    cliente_id:cliId,
+    cliente_nombre:cliNombre,
+    vehiculo_id:vehId,
+    vehiculo_patente:veh?.patente||(!vehId?vehLibre:null)||null,
     vehiculo_marca:veh?.marca||null,
     vehiculo_modelo:veh?.modelo||null,
     fecha:document.getElementById('f-fecha-t').value,
@@ -775,6 +809,7 @@ async function guardarTurno(id){
     duracion_estimada:Number(document.getElementById('f-dur-t').value)||60,
     mecanico:document.getElementById('f-mec-t').value,
     estado:document.getElementById('f-est-t').value,
+    telefono_contacto:document.getElementById('f-tel-t')?.value?.trim()||null,
     observaciones:document.getElementById('f-obs-t').value
   };
   if(!data.fecha||!data.hora||!data.tipo_trabajo){alert('Completá fecha, hora y tipo de trabajo');return;}
@@ -873,6 +908,7 @@ async function renderPresupuestos(){
   return `<tr><td><strong>#${p.numero}</strong></td><td>${p.cliente_nombre||'-'}</td><td>${fmtFecha(p.fecha)}</td><td><span class="badge badge-gray">${p.tipo_precio==='tarjeta'?'Tarjeta':'Contado'}</span></td><td><span class="badge ${eb}">${p.estado}</span></td><td><strong>${fmt(p.total)}</strong></td>
     <td style="display:flex;gap:4px">
       <button class="btn btn-sm" onclick="verPresupuesto('${p.id}')"><i class="ti ti-eye"></i></button>
+      <button class="btn btn-sm" title="Descargar PDF" onclick="generarPresupuestoPDF('${p.id}')"><i class="ti ti-file-download"></i></button>
       <button class="btn btn-sm btn-danger" onclick="eliminarPresupuesto('${p.id}')"><i class="ti ti-trash"></i></button>
     </td></tr>`;}).join('')}</tbody></table>`:'<div class="empty"><i class="ti ti-calculator"></i><p>No hay presupuestos</p></div>'}
   </div>`;
@@ -953,10 +989,21 @@ async function guardarPresupuesto(){
   const cliId = cliSel.value;
   const cliNombre = cliSel.options[cliSel.selectedIndex]?.dataset?.nombre||'';
   if(!cliId){alert('Seleccioná un cliente');return;}
+  if(!window._presup_items.length){alert('Agregá al menos un ítem al presupuesto');return;}
   const total = window._presup_items.reduce((a,b)=>a+b.precio*b.cantidad,0);
-  const {data:pres} = await supa.from('presupuestos').insert({cliente_id:cliId,cliente_nombre:cliNombre,vehiculo_id:document.getElementById('fp-veh').value||null,tipo_precio:document.getElementById('fp-tipo').value,observaciones:document.getElementById('fp-obs').value,total,estado:'pendiente',fecha:hoy()}).select().single();
+  const {data:pres,error} = await supa.from('presupuestos').insert({
+    cliente_id:cliId,cliente_nombre:cliNombre,
+    vehiculo_id:document.getElementById('fp-veh').value||null,
+    tipo_precio:document.getElementById('fp-tipo').value,
+    observaciones:document.getElementById('fp-obs').value,
+    total,estado:'pendiente',fecha:hoy()
+  }).select().single();
+  if(error){alert('Error al guardar: '+error.message);return;}
   if(pres&&window._presup_items.length){
-    await supa.from('presupuesto_items').insert(window._presup_items.map(it=>({presupuesto_id:pres.id,descripcion:it.desc,cantidad:it.cantidad,precio_unitario:it.precio,subtotal:it.precio*it.cantidad})));
+    const {error:err2} = await supa.from('presupuesto_items').insert(
+      window._presup_items.map(it=>({presupuesto_id:pres.id,descripcion:it.desc,cantidad:it.cantidad,precio_unitario:it.precio,subtotal:it.precio*it.cantidad}))
+    );
+    if(err2){alert('Error al guardar ítems: '+err2.message);return;}
   }
   cerrarModal(); await renderPresupuestos();
 }
