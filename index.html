@@ -647,9 +647,10 @@ function modalCliente(id){
       <div><label>Marca</label><input id="f-v-marca" placeholder="Ej: Peugeot"></div>
       <div><label>Modelo</label><input id="f-v-modelo" placeholder="Ej: 308"></div>
     </div>
-    <div class="grid2">
+    <div class="grid3">
       <div><label>Patente</label><input id="f-v-patente" placeholder="Ej: AB123CD" style="text-transform:uppercase"></div>
       <div><label>Año</label><input id="f-v-anio" placeholder="Ej: 2019" type="number"></div>
+      <div><label>Color</label><input id="f-v-color" placeholder="Ej: Rojo"></div>
     </div>`:''}
     <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:20px">
       <button class="btn" onclick="cerrarModal()">Cancelar</button>
@@ -670,8 +671,9 @@ async function guardarCliente(id){
       const modelo=document.getElementById('f-v-modelo')?.value.trim();
       const patente=document.getElementById('f-v-patente')?.value.trim().toUpperCase();
       const anio=document.getElementById('f-v-anio')?.value.trim();
+      const color=document.getElementById('f-v-color')?.value.trim();
       if(marca&&modelo&&patente){
-        await supa.from('vehiculos').insert({cliente_id:nuevo.id,marca,modelo,patente,anio:anio||null});
+        await supa.from('vehiculos').insert({cliente_id:nuevo.id,marca,modelo,patente,anio:anio||null,color:color||null});
       }
     }
   }
