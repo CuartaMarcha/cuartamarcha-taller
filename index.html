@@ -586,11 +586,13 @@ async function renderOrdenes(){
 }
 
 async function modalOrden(id){
-  const [{data:cls},{data:vehs}] = await Promise.all([
+  const [{data:cls},{data:vehs},{data:precios}] = await Promise.all([
     supa.from('clientes').select('id,nombre,apellido').order('nombre'),
-    supa.from('vehiculos').select('id,patente,marca,modelo,cliente_id').order('patente')
+    supa.from('vehiculos').select('id,patente,marca,modelo,cliente_id').order('patente'),
+    supa.from('precios').select('id,descripcion,precio_contado,precio_tarjeta').order('descripcion')
   ]);
   window._vehsOrden = vehs||[];
+  window._preciosLista = precios||[];
   const o = id?(window._ordenes||[]).find(x=>x.id===id):{};
   let manoObra = o?.total||0;
   if(id){
@@ -601,6 +603,7 @@ async function modalOrden(id){
   } else {
     window._ordenRepuestos = [];
   }
+  window._ordenServicios = [];
   abrirModal(`
     <div class="modal-title"><span>${id?'Editar orden #'+o.numero:'Nueva orden de trabajo'}</span><button class="btn btn-sm" onclick="cerrarModal()"><i class="ti ti-x"></i></button></div>
 
@@ -699,18 +702,43 @@ async function modalOrden(id){
       <button class="btn btn-primary" style="width:100%;padding:10px" onclick="agregarRepuestoOrden()"><i class="ti ti-plus"></i> Agregar repuesto</button>
     </div>
     <div id="lista-repuestos-orden"></div>
+    <!-- Mano de obra / Servicios -->
     <div class="sep"></div>
+    <div class="seccion-title" style="margin-bottom:12px"><i class="ti ti-tool"></i> Mano de obra</div>
+    <div style="background:#f8f8f8;border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:10px">
+      <div style="margin-bottom:8px">
+        <label style="margin-top:0;font-size:11px">Elegir de lista de precios</label>
+        <select id="f-srv-lista" onchange="autocompletarServicio()">
+          <option value="">— Seleccioná un servicio —</option>
+          ${(window._preciosLista||[]).map(p=>`<option value="${p.id}" data-cont="${p.precio_contado||0}" data-tarj="${p.precio_tarjeta||0}">${p.descripcion}</option>`).join('')}
+        </select>
+      </div>
+      <div style="margin-bottom:8px">
+        <label style="margin-top:0;font-size:11px">Descripción del servicio</label>
+        <input id="f-srv-desc" placeholder="O escribí uno manualmente...">
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
+        <div><label style="margin-top:0;font-size:11px">Precio $</label><input type="number" id="f-srv-precio" placeholder="0" min="0"></div>
+        <div><label style="margin-top:0;font-size:11px">Cantidad</label><input type="number" id="f-srv-cant" value="1" min="1"></div>
+      </div>
+      <button class="btn btn-primary" style="width:100%;padding:10px" onclick="agregarServicioOrden()"><i class="ti ti-plus"></i> Agregar servicio</button>
+    </div>
+    <div id="lista-servicios-orden"></div>
     <div style="background:#1a1a1a;border-radius:10px;padding:14px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
-      <div style="flex:1;min-width:140px">
-        <label style="color:#aaa;font-size:11px;margin-bottom:4px">Mano de obra $</label>
-        <input type="number" id="f-total" value="${manoObra}" oninput="actualizarTotalOrden()" style="background:#2a2a2a;border-color:#444;color:#fff;font-size:16px;font-weight:600">
+      <div style="flex:1">
+        <div style="color:#aaa;font-size:11px">Mano de obra</div>
+        <div style="color:#fff;font-size:16px;font-weight:700" id="total-servicios-ord">$0</div>
+      </div>
+      <div style="flex:1;text-align:center">
+        <div style="color:#aaa;font-size:11px">Repuestos</div>
+        <div style="color:#fff;font-size:16px;font-weight:700" id="total-repuestos-ord">$0</div>
       </div>
       <div style="flex:1;text-align:right">
-        <div style="color:#aaa;font-size:11px;margin-bottom:2px">TOTAL</div>
-        <div style="font-size:22px;font-weight:800;color:var(--primary)" id="gran-total-ord">${fmt(manoObra)}</div>
-        <div style="font-size:11px;color:#666;margin-top:2px">Repuestos: <span id="total-repuestos-ord">$0</span></div>
+        <div style="color:#aaa;font-size:11px">TOTAL</div>
+        <div style="font-size:24px;font-weight:800;color:var(--primary)" id="gran-total-ord">${fmt(manoObra)}</div>
       </div>
     </div>
+    <input type="hidden" id="f-total" value="${manoObra}">
 
     <!-- Fotos -->
     <div class="sep"></div>
@@ -778,6 +806,45 @@ function filtrarVehsOrden(cliId, selId){
     : '<option value="">Sin vehículos para este cliente</option>';
 }
 
+function autocompletarServicio(){
+  const sel = document.getElementById('f-srv-lista');
+  const opt = sel.options[sel.selectedIndex];
+  if(!opt.value) return;
+  document.getElementById('f-srv-desc').value = opt.text;
+  document.getElementById('f-srv-precio').value = opt.dataset.cont||0;
+}
+
+function agregarServicioOrden(){
+  const desc = document.getElementById('f-srv-desc').value.trim();
+  const precio = Number(document.getElementById('f-srv-precio').value)||0;
+  const cant = Number(document.getElementById('f-srv-cant').value)||1;
+  if(!desc){alert('Ingresá la descripción del servicio');return;}
+  window._ordenServicios.push({descripcion:desc, precio_unitario:precio, cantidad:cant});
+  document.getElementById('f-srv-desc').value='';
+  document.getElementById('f-srv-precio').value='';
+  document.getElementById('f-srv-cant').value='1';
+  document.getElementById('f-srv-lista').value='';
+  renderServiciosOrden();
+}
+
+function renderServiciosOrden(){
+  const lista = document.getElementById('lista-servicios-orden');
+  if(!lista) return;
+  const srvs = window._ordenServicios||[];
+  lista.innerHTML = srvs.length
+    ? `<div style="display:flex;flex-direction:column;gap:6px;margin-bottom:10px">${srvs.map((s,i)=>`
+        <div style="display:flex;align-items:center;gap:10px;background:#fff;border:1px solid var(--border);border-radius:8px;padding:10px 12px">
+          <div style="flex:1;min-width:0">
+            <div style="font-weight:600;font-size:14px">${s.descripcion}</div>
+            <div style="font-size:12px;color:var(--text2);margin-top:2px">${s.cantidad} u. × ${fmt(s.precio_unitario)}</div>
+          </div>
+          <div style="font-weight:700;font-size:15px;color:var(--primary);white-space:nowrap">${fmt(s.precio_unitario*s.cantidad)}</div>
+          <button class="btn btn-sm btn-danger" style="flex-shrink:0;padding:6px 8px" onclick="window._ordenServicios.splice(${i},1);renderServiciosOrden()"><i class="ti ti-trash"></i></button>
+        </div>`).join('')}</div>`
+    : '<p style="font-size:13px;color:var(--text2);padding:4px 0 10px">Sin servicios agregados</p>';
+  actualizarTotalOrden();
+}
+
 function agregarRepuestoOrden(){
   const nombre = document.getElementById('f-rep-nombre').value.trim();
   const cantidad = Number(document.getElementById('f-rep-cant').value)||1;
@@ -814,11 +881,19 @@ function renderRepuestosOrden(){
 }
 
 function actualizarTotalOrden(){
-  const mo = Number(document.getElementById('f-total')?.value)||0;
+  const srvs = window._ordenServicios||[];
   const reps = window._ordenRepuestos||[];
+  const totalSrvs = srvs.reduce((a,s)=>a+s.precio_unitario*s.cantidad,0);
   const totalReps = reps.reduce((a,r)=>a+r.precio_unitario*r.cantidad,0);
-  const gt = document.getElementById('gran-total-ord');
-  if(gt) gt.textContent = fmt(mo+totalReps);
+  const gran = totalSrvs+totalReps;
+  const elSrv = document.getElementById('total-servicios-ord');
+  const elRep = document.getElementById('total-repuestos-ord');
+  const elGran = document.getElementById('gran-total-ord');
+  const elHidden = document.getElementById('f-total');
+  if(elSrv) elSrv.textContent = fmt(totalSrvs);
+  if(elRep) elRep.textContent = fmt(totalReps);
+  if(elGran) elGran.textContent = fmt(gran);
+  if(elHidden) elHidden.value = gran;
 }
 
 async function guardarOrden(id){
@@ -828,8 +903,13 @@ async function guardarOrden(id){
   const {data:cls} = await supa.from('clientes').select('nombre,apellido').eq('id',cliId).single();
   const {data:veh} = await supa.from('vehiculos').select('patente,marca,modelo').eq('id',vehId).single();
   const reps = window._ordenRepuestos||[];
+  const srvs = window._ordenServicios||[];
   const totalReps = reps.reduce((a,r)=>a+r.precio_unitario*r.cantidad,0);
-  const manoObra = Number(document.getElementById('f-total').value)||0;
+  const totalSrvs = srvs.reduce((a,s)=>a+s.precio_unitario*s.cantidad,0);
+  const manoObra = totalSrvs;
+  const totalGeneral = totalSrvs + totalReps;
+  // Armar texto de servicios para trabajos_realizados
+  const srvTexto = srvs.length ? srvs.map(s=>`- ${s.descripcion} x${s.cantidad}: ${fmt(s.precio_unitario*s.cantidad)}`).join('\n') : '';
   const data={
     cliente_id:cliId,vehiculo_id:vehId,
     cliente_nombre:`${cls?.nombre} ${cls?.apellido}`,
@@ -839,14 +919,14 @@ async function guardarOrden(id){
     mecanico:document.getElementById('f-mec').value,
     kilometraje_ingreso:document.getElementById('f-km')?.value||'',
     descripcion_cliente:document.getElementById('f-desc').value,
-    trabajos_realizados:document.getElementById('f-trab').value,
+    trabajos_realizados:[srvTexto, document.getElementById('f-trab').value].filter(Boolean).join('\n'),
     diagnostico_mecanico:document.getElementById('f-diag')?.value||'',
     observaciones:document.getElementById('f-obs')?.value||'',
     fecha_ingreso:document.getElementById('f-fing')?.value||hoy(),
     fecha_entrega:document.getElementById('f-fent')?.value||null,
     tiempo_real_horas:Number(document.getElementById('f-tiempo')?.value)||null,
     cliente_autorizo:document.getElementById('f-autorizo')?.checked||false,
-    total:manoObra+totalReps
+    total:totalGeneral
   };
   let ordenId = id;
   if(id){
