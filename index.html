@@ -187,6 +187,7 @@ tr:hover td{background:#fafafa}
     <button class="nav-item" onclick="ir('vehiculos',this)"><i class="ti ti-car"></i> Vehículos</button>
     <button class="nav-item" onclick="ir('ordenes',this)"><i class="ti ti-file-text"></i> Órdenes</button>
     <button class="nav-item" id="nav-turnos" onclick="ir('turnos',this)"><i class="ti ti-calendar"></i> Turnos<span class="nav-badge" id="badge-turnos"></span></button>
+    <button class="nav-item" onclick="ir('seguimientos',this)"><i class="ti ti-message-circle-check"></i> Seguimientos</button>
     <button class="nav-item" onclick="ir('presupuestos',this)"><i class="ti ti-calculator"></i> Presupuestos</button>
     <button class="nav-item" onclick="ir('precios',this)"><i class="ti ti-tags"></i> Lista de precios</button>
     <button class="nav-item" onclick="ir('caja',this)"><i class="ti ti-cash"></i> Caja</button>
@@ -253,7 +254,7 @@ if(LOGO_URL){
   if(ll) ll.innerHTML=`<img src="${LOGO_URL}" style="height:72px;width:auto;border-radius:10px">`;
 }
 
-const titles = {dashboard:'Inicio',clientes:'Clientes',vehiculos:'Vehículos',ordenes:'Órdenes de trabajo',prioridades:'Cola de prioridades',turnos:'Turnos',presupuestos:'Presupuestos',precios:'Lista de precios',historial:'Historial de clientes',cuentas:'Cuentas corrientes',caja:'Caja',cierre:'Cierre mensual'};
+const titles = {dashboard:'Inicio',clientes:'Clientes',vehiculos:'Vehículos',ordenes:'Órdenes de trabajo',prioridades:'Cola de prioridades',turnos:'Turnos',seguimientos:'Seguimientos',presupuestos:'Presupuestos',precios:'Lista de precios',historial:'Historial de clientes',cuentas:'Cuentas corrientes',caja:'Caja',cierre:'Cierre mensual'};
 let page = 'dashboard';
 
 function ir(p, el){
@@ -335,6 +336,7 @@ async function render(){
   if(page==='ordenes') await renderOrdenes();
   if(page==='prioridades') await renderPrioridades();
   if(page==='turnos') await renderTurnos();
+  if(page==='seguimientos') await renderSeguimientos();
   if(page==='presupuestos') await renderPresupuestos();
   if(page==='precios') await renderPrecios();
   if(page==='historial') await renderHistorial();
@@ -346,7 +348,8 @@ async function render(){
 async function renderDashboard(){
   const hace4 = new Date(); hace4.setDate(hace4.getDate()-4);
   const hace8 = new Date(); hace8.setDate(hace8.getDate()-8);
-  const [clientes, ordenes, turnos, caja, vehiculos, ultimasOrdenes, seguimientos] = await Promise.all([
+  const hace5 = new Date(); hace5.setDate(hace5.getDate()-5);
+  const [clientes, ordenes, turnos, caja, vehiculos, ultimasOrdenes, seguimientos, movsCuenta] = await Promise.all([
     supa.from('clientes').select('id'),
     supa.from('ordenes').select('*'),
     supa.from('turnos').select('*').eq('fecha', hoy()),
@@ -356,7 +359,8 @@ async function renderDashboard(){
     supa.from('ordenes').select('id,numero,cliente_nombre,vehiculo_patente,vehiculo_modelo,fecha_ingreso,estado,cliente_id,clientes(telefono)')
       .gte('fecha_ingreso', hace8.toISOString().slice(0,10))
       .lte('fecha_ingreso', hace4.toISOString().slice(0,10))
-      .neq('estado','cancelado')
+      .neq('estado','cancelado'),
+    supa.from('cuenta_corriente').select('*,clientes(nombre,apellido,telefono)')
   ]);
   const mes = caja.data?.filter(c=>c.fecha?.slice(0,7)===mesActual());
   const ing = mes?.filter(c=>c.tipo==='ingreso').reduce((a,b)=>a+Number(b.monto),0)||0;
@@ -366,6 +370,22 @@ async function renderDashboard(){
   const ordenesRecientes = (ordenes.data||[]).slice(-5).reverse();
   // Seguimientos post-servicio
   const seguimientosList = seguimientos.data||[];
+  // Deudores con más de 5 días sin pagar
+  const movs = movsCuenta.data||[];
+  const saldosPorCliente = {};
+  const ultimoDebitoPorCliente = {};
+  movs.forEach(m=>{
+    if(!saldosPorCliente[m.cliente_id]) saldosPorCliente[m.cliente_id]={saldo:0,cli:m.clientes};
+    saldosPorCliente[m.cliente_id].saldo += m.tipo==='debito' ? Number(m.monto) : -Number(m.monto);
+    if(m.tipo==='debito'){
+      if(!ultimoDebitoPorCliente[m.cliente_id]||m.fecha>ultimoDebitoPorCliente[m.cliente_id])
+        ultimoDebitoPorCliente[m.cliente_id]=m.fecha;
+    }
+  });
+  const deudores = Object.entries(saldosPorCliente)
+    .filter(([cliId,{saldo}])=>saldo>0 && ultimoDebitoPorCliente[cliId]<=hace5.toISOString().slice(0,10))
+    .map(([cliId,{saldo,cli}])=>({cliId,saldo,cli,desde:ultimoDebitoPorCliente[cliId]}))
+    .sort((a,b)=>b.saldo-a.saldo);
 
   const haceSeismeses = new Date(); haceSeismeses.setMonth(haceSeismeses.getMonth()-6);
   const limiteService = haceSeismeses.toISOString().slice(0,10);
@@ -406,6 +426,26 @@ async function renderDashboard(){
         '<div class="empty" style="padding:24px"><i class="ti ti-file-off"></i><p>Sin órdenes</p></div>'}
     </div>
   </div>
+  ${deudores.length?`
+  <div class="card" style="margin-top:16px;border-left:3px solid var(--primary)">
+    <div class="seccion-title" style="margin-bottom:12px;color:var(--primary)"><i class="ti ti-alert-circle"></i> Deudas pendientes hace +5 días</div>
+    ${deudores.map(({cliId,saldo,cli,desde})=>{
+      const tel=(cli?.telefono||'').replace(/\D/g,'');
+      const nombre=`${cli?.nombre||''} ${cli?.apellido||''}`.trim();
+      const msg=`Hola ${cli?.nombre||''}! 👋 Te escribimos desde *Cuarta Marcha Taller Mecánico*.\n\nTe recordamos que tenés un saldo pendiente de *${fmt(saldo)}* desde el ${fmtFecha(desde)}.\n\nCuando puedas coordinar el pago, comunicate con nosotros.\nTel: 351-344-3965\n\n¡Gracias!`;
+      const waUrl=tel?`https://wa.me/54${tel}?text=${encodeURIComponent(msg)}`:'';
+      return `<div style="display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--border);gap:8px;flex-wrap:wrap">
+        <div>
+          <div style="font-weight:600">${nombre||'-'}</div>
+          <div style="font-size:12px;color:var(--text2)">Debe desde ${fmtFecha(desde)} · <strong class="red">${fmt(saldo)}</strong></div>
+        </div>
+        <div style="display:flex;gap:6px">
+          ${waUrl?`<a href="${waUrl}" target="_blank" class="btn btn-sm" style="background:#25D366;color:#fff;border:none"><i class="ti ti-brand-whatsapp"></i> Recordar</a>`:''}
+          <button class="btn btn-sm" onclick="ir('cuentas',document.querySelector('[onclick*=cuentas]'))"><i class="ti ti-eye"></i> Ver cuenta</button>
+        </div>
+      </div>`;
+    }).join('')}
+  </div>`:''}
   <div class="card" style="margin-top:16px;border-left:3px solid #25D366">
     <div class="seccion-title" style="margin-bottom:12px;display:flex;justify-content:space-between;align-items:center">
       <span style="color:#1a7a3a"><i class="ti ti-message-circle-check"></i> Seguimientos post-servicio</span>
@@ -931,13 +971,55 @@ async function modalOrden(id){
       <input type="file" id="f-fotos" multiple accept="image/*" style="display:none" onchange="previsualizarFotosOrden()">
     </label>
     <div id="preview-fotos-ord" class="fotos-grid" style="margin-top:8px"></div>
+
+    ${id?`
+    <!-- Recordatorios -->
+    <div class="sep"></div>
+    <div class="seccion-title" style="margin-bottom:10px"><i class="ti ti-bell"></i> Recordatorios de service</div>
+    <div id="recordatorios-orden-lista"></div>
+    <div style="background:#f8f8f8;border:1px solid var(--border);border-radius:10px;padding:12px">
+      <div class="grid2">
+        <div>
+          <label style="margin-top:0;font-size:11px">Preset</label>
+          <select id="f-rec-preset" onchange="autocompletarRecordatorio()">
+            <option value="">— Elegir preset —</option>
+            <option value="Aceite y filtro|6">Aceite y filtro — 6 meses</option>
+            <option value="Service completo|6">Service completo — 6 meses</option>
+            <option value="Alineación y balanceo|6">Alineación y balanceo — 6 meses</option>
+            <option value="Frenos|12">Frenos — 12 meses</option>
+            <option value="Filtro de aire|12">Filtro de aire — 12 meses</option>
+            <option value="Líquido de frenos|24">Líquido de frenos — 24 meses</option>
+            <option value="Correa de distribución|24">Correa de distribución — 24 meses</option>
+            <option value="Caja de cambios|36">Caja de cambios — 36 meses</option>
+          </select>
+        </div>
+        <div>
+          <label style="margin-top:0;font-size:11px">O escribir manualmente</label>
+          <input id="f-rec-desc" placeholder="Ej: Revisión de embrague">
+        </div>
+      </div>
+      <div class="grid2" style="margin-top:8px">
+        <div>
+          <label style="margin-top:0;font-size:11px">Meses hasta el recordatorio</label>
+          <input type="number" id="f-rec-meses" placeholder="Ej: 6" min="1" max="60" oninput="calcularFechaRecordatorio()">
+        </div>
+        <div>
+          <label style="margin-top:0;font-size:11px">Fecha del recordatorio</label>
+          <input type="date" id="f-rec-fecha">
+        </div>
+      </div>
+      <button class="btn btn-primary" style="width:100%;margin-top:10px;padding:10px" onclick="guardarRecordatorioOrden('${id}')">
+        <i class="ti ti-bell-plus"></i> Agregar recordatorio
+      </button>
+    </div>`:''}
+
     <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:20px">
       <button class="btn" onclick="cerrarModal()">Cancelar</button>
       <button class="btn btn-primary" onclick="guardarOrden('${id||''}')"><i class="ti ti-device-floppy"></i> Guardar</button>
     </div>`);
   if(o?.cliente_id) filtrarVehsOrden(o.cliente_id, o.vehiculo_id);
   renderRepuestosOrden();
-  if(id) cargarFotosExistentes(id);
+  if(id){ cargarFotosExistentes(id); cargarRecordatoriosOrden(id); }
 }
 
 function toggleDetallesOrden(){
@@ -1181,6 +1263,120 @@ async function eliminarFotoOrden(fotoId, ordenId){
   if(!confirm('¿Eliminar esta foto?')) return;
   await supa.from('orden_fotos').delete().eq('id',fotoId);
   cargarFotosExistentes(ordenId);
+}
+
+function autocompletarRecordatorio(){
+  const val = document.getElementById('f-rec-preset')?.value;
+  if(!val) return;
+  const [desc, meses] = val.split('|');
+  document.getElementById('f-rec-desc').value = desc;
+  document.getElementById('f-rec-meses').value = meses;
+  calcularFechaRecordatorio();
+}
+
+function calcularFechaRecordatorio(){
+  const meses = Number(document.getElementById('f-rec-meses')?.value)||0;
+  if(!meses) return;
+  const fecha = new Date();
+  fecha.setMonth(fecha.getMonth() + meses);
+  document.getElementById('f-rec-fecha').value = fecha.toISOString().slice(0,10);
+}
+
+async function guardarRecordatorioOrden(ordenId){
+  const desc = document.getElementById('f-rec-desc')?.value.trim();
+  const fecha = document.getElementById('f-rec-fecha')?.value;
+  if(!desc||!fecha){alert('Completá el servicio y la fecha');return;}
+  const o = (window._ordenes||[]).find(x=>x.id===ordenId)||{};
+  let telefono = '';
+  if(o.cliente_id){
+    const {data:cli} = await supa.from('clientes').select('telefono').eq('id',o.cliente_id).single();
+    telefono = cli?.telefono||'';
+  }
+  const {error} = await supa.from('recordatorios').insert({
+    orden_id:ordenId, cliente_id:o.cliente_id||null,
+    cliente_nombre:o.cliente_nombre||'', vehiculo_desc:[o.vehiculo_patente,o.vehiculo_marca,o.vehiculo_modelo].filter(Boolean).join(' '),
+    telefono, tipo_servicio:desc, fecha_recordatorio:fecha, estado:'pendiente'
+  });
+  if(error){alert('Error: '+error.message);return;}
+  document.getElementById('f-rec-desc').value='';
+  document.getElementById('f-rec-meses').value='';
+  document.getElementById('f-rec-fecha').value='';
+  document.getElementById('f-rec-preset').value='';
+  cargarRecordatoriosOrden(ordenId);
+}
+
+async function cargarRecordatoriosOrden(ordenId){
+  const {data} = await supa.from('recordatorios').select('*').eq('orden_id',ordenId).order('fecha_recordatorio');
+  const lista = document.getElementById('recordatorios-orden-lista');
+  if(!lista) return;
+  if(!data?.length){lista.innerHTML='<p style="font-size:13px;color:var(--text2);margin-bottom:10px">Sin recordatorios programados</p>';return;}
+  lista.innerHTML=`<div style="display:flex;flex-direction:column;gap:6px;margin-bottom:10px">${data.map(r=>`
+    <div style="display:flex;align-items:center;justify-content:space-between;background:#fff;border:1px solid var(--border);border-radius:8px;padding:10px 12px">
+      <div>
+        <div style="font-weight:600;font-size:13px">${r.tipo_servicio}</div>
+        <div style="font-size:12px;color:var(--text2)">Fecha: ${fmtFecha(r.fecha_recordatorio)} · <span style="${r.estado==='enviado'?'color:#1a7a3a':'color:var(--amber)'}">${r.estado==='enviado'?'Enviado':'Pendiente'}</span></div>
+      </div>
+      <button class="btn btn-sm btn-danger" onclick="eliminarRecordatorio('${r.id}','${ordenId}')"><i class="ti ti-trash"></i></button>
+    </div>`).join('')}</div>`;
+}
+
+async function eliminarRecordatorio(id, ordenId){
+  if(!confirm('¿Eliminar este recordatorio?')) return;
+  await supa.from('recordatorios').delete().eq('id',id);
+  cargarRecordatoriosOrden(ordenId);
+}
+
+async function renderSeguimientos(){
+  const hoy8 = new Date(); hoy8.setDate(hoy8.getDate()-8);
+  const hoy4 = new Date(); hoy4.setDate(hoy4.getDate()-4);
+  const hoy7 = new Date(); hoy7.setDate(hoy7.getDate()+7);
+  const [segData, recData] = await Promise.all([
+    supa.from('ordenes').select('id,numero,cliente_nombre,vehiculo_patente,vehiculo_modelo,fecha_ingreso,estado,cliente_id,clientes(telefono)')
+      .gte('fecha_ingreso',hoy8.toISOString().slice(0,10)).lte('fecha_ingreso',hoy4.toISOString().slice(0,10)).neq('estado','cancelado'),
+    supa.from('recordatorios').select('*').lte('fecha_recordatorio',hoy7.toISOString().slice(0,10)).eq('estado','pendiente').order('fecha_recordatorio')
+  ]);
+  const seguimientosList = segData.data||[];
+  const recordsList = recData.data||[];
+  document.getElementById('content').innerHTML=`
+  <div class="card" style="margin-bottom:16px;border-left:3px solid #25D366">
+    <div class="seccion-title" style="margin-bottom:12px;color:#1a7a3a"><i class="ti ti-message-circle-check"></i> Seguimiento post-servicio <span style="font-size:11px;font-weight:400;color:var(--text2)">(órdenes de 4–8 días atrás)</span></div>
+    ${seguimientosList.length?seguimientosList.map(o=>{
+      const tel=(o.clientes?.telefono||'').replace(/\D/g,'');
+      const veh=[o.vehiculo_patente,o.vehiculo_modelo].filter(Boolean).join(' ');
+      const msg=`Hola ${(o.cliente_nombre||'').split(' ')[0]}! 👋 Te escribimos desde *Cuarta Marcha Taller Mecánico*.\n\n¿Nos gustaría saber cómo quedó tu vehículo después del trabajo que realizamos? Esperamos que todo esté perfecto 🔧\n\nSi tenés un momentito nos gustaría pedirte que nos dejes una reseña en Google, nos ayuda muchísimo 🙏\n👉 ${GOOGLE_REVIEW_URL}\n\nCualquier consulta no dudes en avisarnos! Gracias!`;
+      const waUrl=tel?`https://wa.me/54${tel}?text=${encodeURIComponent(msg)}`:'';
+      return `<div style="display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--border);gap:8px;flex-wrap:wrap">
+        <div><div style="font-weight:600">${o.cliente_nombre||'-'} <span style="font-weight:400;font-size:12px;color:var(--text2)">${veh}</span></div>
+        <div style="font-size:12px;color:var(--text2)">Orden #${o.numero} · ${fmtFecha(o.fecha_ingreso)} · ${badgeEstado(o.estado)}</div></div>
+        <div>${waUrl?`<a href="${waUrl}" target="_blank" class="btn btn-sm" style="background:#25D366;color:#fff;border:none"><i class="ti ti-brand-whatsapp"></i> Enviar</a>`:'<span style="font-size:12px;color:var(--text2)">Sin teléfono</span>'}</div>
+      </div>`;
+    }).join(''):'<div style="text-align:center;padding:20px;color:var(--text2)"><i class="ti ti-circle-check" style="font-size:28px;display:block;margin-bottom:8px;color:#25D366"></i>Sin seguimientos pendientes</div>'}
+  </div>
+  <div class="card" style="border-left:3px solid var(--amber)">
+    <div class="seccion-title" style="margin-bottom:12px;color:var(--amber)"><i class="ti ti-bell"></i> Recordatorios de service próximos <span style="font-size:11px;font-weight:400;color:var(--text2)">(próximos 7 días + vencidos)</span></div>
+    ${recordsList.length?recordsList.map(r=>{
+      const tel=(r.telefono||'').replace(/\D/g,'');
+      const hoy=new Date().toISOString().slice(0,10);
+      const vencido=r.fecha_recordatorio<hoy;
+      const msg=`Hola ${(r.cliente_nombre||'').split(' ')[0]}! 👋 Te escribimos desde *Cuarta Marcha Taller Mecánico*.\n\nTe recordamos que tu vehículo ${r.vehiculo_desc||''} tiene pendiente: *${r.tipo_servicio}*.\n\nComunicate con nosotros para coordinar el turno 📅\nTel: 351-344-3965\n\n¡Gracias!`;
+      const waUrl=tel?`https://wa.me/54${tel}?text=${encodeURIComponent(msg)}`:'';
+      return `<div style="display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--border);gap:8px;flex-wrap:wrap">
+        <div>
+          <div style="font-weight:600">${r.cliente_nombre||'-'} <span style="font-weight:400;font-size:12px;color:var(--text2)">${r.vehiculo_desc||''}</span></div>
+          <div style="font-size:12px;color:var(--text2)">${r.tipo_servicio} · <span style="${vencido?'color:var(--primary);font-weight:600':'color:var(--amber)'}">${vencido?'Vencido — ':'Para el '}${fmtFecha(r.fecha_recordatorio)}</span></div>
+        </div>
+        <div style="display:flex;gap:6px">
+          ${waUrl?`<a href="${waUrl}" target="_blank" class="btn btn-sm" style="background:#25D366;color:#fff;border:none"><i class="ti ti-brand-whatsapp"></i> Avisar</a>`:''}
+          <button class="btn btn-sm" onclick="marcarRecordatorioEnviado('${r.id}')"><i class="ti ti-check"></i> Enviado</button>
+        </div>
+      </div>`;
+    }).join(''):'<div style="text-align:center;padding:20px;color:var(--text2)"><i class="ti ti-bell-off" style="font-size:28px;display:block;margin-bottom:8px"></i>Sin recordatorios próximos</div>'}
+  </div>`;
+}
+
+async function marcarRecordatorioEnviado(id){
+  await supa.from('recordatorios').update({estado:'enviado'}).eq('id',id);
+  renderSeguimientos();
 }
 
 async function renderPrioridades(){
