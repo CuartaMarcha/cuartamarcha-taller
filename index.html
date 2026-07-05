@@ -4,6 +4,12 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Cuarta Marcha - Taller Mecánico</title>
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#CC1F1F">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="C. Marcha">
+<link rel="apple-touch-icon" href="/logo.png">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/dist/tabler-icons.min.css">
@@ -1237,12 +1243,29 @@ async function verPresupuesto(id){
     </tbody></table>
     <div style="text-align:right;font-size:16px;font-weight:600;margin-top:12px" class="green">Total: ${fmt(p.total)}</div>
     <div class="sep"></div>
-    <div style="display:flex;gap:8px;justify-content:flex-end">
+    <div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap">
       <button class="btn" onclick="generarPresupuestoPDF('${id}')"><i class="ti ti-file-download"></i> PDF</button>
+      <button class="btn" style="background:#25D366;color:#fff;border:none" onclick="enviarPresupuestoWP('${id}')"><i class="ti ti-brand-whatsapp"></i> WhatsApp</button>
       <button class="btn btn-primary" onclick="aprobarPresupuesto('${id}')"><i class="ti ti-check"></i> Aprobar</button>
       <button class="btn btn-danger" onclick="rechazarPresupuesto('${id}')"><i class="ti ti-x"></i> Rechazar</button>
       <button class="btn" onclick="cerrarModal()">Cerrar</button>
     </div>`);
+}
+
+async function enviarPresupuestoWP(id){
+  const [{data:p},{data:items}] = await Promise.all([
+    supa.from('presupuestos').select('*').eq('id',id).single(),
+    supa.from('presupuesto_items').select('*').eq('presupuesto_id',id)
+  ]);
+  let tel = '';
+  if(p.cliente_id){
+    const {data:cl} = await supa.from('clientes').select('telefono').eq('id',p.cliente_id).single();
+    tel = (cl?.telefono||'').replace(/\D/g,'');
+  }
+  const lineas = (items||[]).map(it=>`  • ${it.descripcion} x${it.cantidad} — ${fmt(it.subtotal)}`).join('\n');
+  const msg = `*Presupuesto #${p.numero} — Cuarta Marcha Taller Mecánico*\n\nCliente: ${p.cliente_nombre||'Consumidor Final'}\nFecha: ${fmtFecha(p.fecha)}\n\n*Detalle:*\n${lineas}\n\n*TOTAL: ${fmt(p.total)}*\n\n_Validez: 15 días. Cualquier consulta llamanos al 351-344-3965._`;
+  const url = `https://wa.me/${tel?'54'+tel:''}?text=${encodeURIComponent(msg)}`;
+  window.open(url,'_blank');
 }
 
 async function generarPresupuestoPDF(id){
@@ -1958,6 +1981,7 @@ async function renderCierre(){
 render();
 actualizarBadgeTurnos();
 setInterval(actualizarBadgeTurnos, 60000);
+if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');
 </script>
 </body>
 </html>
