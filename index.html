@@ -364,26 +364,32 @@ async function renderDashboard(){
   const recordatorios = (vehiculos.data||[]).filter(v=>{ const u=ultimaPorVeh[v.id]; return !u||u<limiteService; }).slice(0,8);
   document.getElementById('content').innerHTML = `
   <div class="grid4" style="margin-bottom:20px">
-    <div class="metric"><div class="metric-label">Clientes</div><div class="metric-value blue">${clientes.data?.length||0}</div></div>
-    <div class="metric"><div class="metric-label">Órdenes abiertas</div><div class="metric-value amber">${abiertas}</div></div>
-    <div class="metric"><div class="metric-label">Turnos hoy</div><div class="metric-value blue">${turnosHoy.length}</div></div>
-    <div class="metric"><div class="metric-label">Balance del mes</div><div class="metric-value ${ing-egr>=0?'green':'red'}">${fmt(ing-egr)}</div></div>
+    <div class="metric" style="cursor:pointer" onclick="ir('clientes',document.querySelector('[onclick*=clientes]'))"><div class="metric-label">Clientes</div><div class="metric-value blue">${clientes.data?.length||0}</div></div>
+    <div class="metric" style="cursor:pointer" onclick="ir('ordenes',document.querySelector('[onclick*=ordenes]'))"><div class="metric-label">Órdenes abiertas</div><div class="metric-value amber">${abiertas}</div></div>
+    <div class="metric" style="cursor:pointer" onclick="ir('turnos',document.querySelector('[onclick*=turnos]'))"><div class="metric-label">Turnos hoy</div><div class="metric-value blue">${turnosHoy.length}</div></div>
+    <div class="metric" style="cursor:pointer" onclick="ir('caja',document.querySelector('[onclick*=caja]'))"><div class="metric-label">Balance del mes</div><div class="metric-value ${ing-egr>=0?'green':'red'}">${fmt(ing-egr)}</div></div>
   </div>
   <div class="grid2">
     <div class="card">
-      <div class="seccion-title"><i class="ti ti-calendar"></i> Turnos de hoy</div>
+      <div class="seccion-title" style="display:flex;justify-content:space-between;align-items:center">
+        <span><i class="ti ti-calendar"></i> Turnos de hoy</span>
+        <button class="btn btn-sm" onclick="ir('turnos',document.querySelector('[onclick*=turnos]'))"><i class="ti ti-arrow-right"></i> Ver todos</button>
+      </div>
       ${turnosHoy.length?turnosHoy.sort((a,b)=>a.hora.localeCompare(b.hora)).map(t=>`
-        <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)">
+        <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);cursor:pointer" onclick="ir('turnos',document.querySelector('[onclick*=turnos]'))">
           <div style="font-weight:600;min-width:48px">${t.hora?.slice(0,5)}</div>
-          <div><div style="font-weight:500">${t.cliente_nombre||'Cliente'}</div><div style="font-size:11px;color:var(--text2)">${t.tipo_trabajo}</div></div>
+          <div style="flex:1"><div style="font-weight:500">${t.cliente_nombre||'Cliente'}</div><div style="font-size:11px;color:var(--text2)">${t.tipo_trabajo}</div></div>
           ${badgeEstado(t.estado)}
         </div>`).join(''):
         '<div class="empty" style="padding:24px"><i class="ti ti-calendar-off"></i><p>Sin turnos hoy</p></div>'}
     </div>
     <div class="card">
-      <div class="seccion-title"><i class="ti ti-file-text"></i> Órdenes recientes</div>
+      <div class="seccion-title" style="display:flex;justify-content:space-between;align-items:center">
+        <span><i class="ti ti-file-text"></i> Órdenes recientes</span>
+        <button class="btn btn-sm" onclick="ir('ordenes',document.querySelector('[onclick*=ordenes]'))"><i class="ti ti-arrow-right"></i> Ver todas</button>
+      </div>
       ${ordenesRecientes.length?ordenesRecientes.map(o=>`
-        <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)">
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);cursor:pointer" onclick="modalOrden('${o.id}')">
           <div><div style="font-weight:500">${o.cliente_nombre||'Cliente'}</div><div style="font-size:11px;color:var(--text2)">${fmtFecha(o.fecha_ingreso)}</div></div>
           <div style="display:flex;align-items:center;gap:8px"><span style="font-weight:500">${fmt(o.total)}</span>${badgeEstado(o.estado)}</div>
         </div>`).join(''):
