@@ -181,12 +181,9 @@ tr:hover td{background:#fafafa}
     <button class="nav-item" onclick="ir('clientes',this)"><i class="ti ti-users"></i> Clientes</button>
     <button class="nav-item" onclick="ir('vehiculos',this)"><i class="ti ti-car"></i> Vehículos</button>
     <button class="nav-item" onclick="ir('ordenes',this)"><i class="ti ti-file-text"></i> Órdenes</button>
-    <button class="nav-item" onclick="ir('prioridades',this)"><i class="ti ti-list-numbers"></i> Prioridades</button>
     <button class="nav-item" id="nav-turnos" onclick="ir('turnos',this)"><i class="ti ti-calendar"></i> Turnos<span class="nav-badge" id="badge-turnos"></span></button>
     <button class="nav-item" onclick="ir('presupuestos',this)"><i class="ti ti-calculator"></i> Presupuestos</button>
     <button class="nav-item" onclick="ir('precios',this)"><i class="ti ti-tags"></i> Lista de precios</button>
-    <button class="nav-item" onclick="ir('historial',this)"><i class="ti ti-history"></i> Historial</button>
-    <button class="nav-item" onclick="ir('cuentas',this)"><i class="ti ti-credit-card"></i> Cuentas ctes.</button>
     <button class="nav-item" onclick="ir('caja',this)"><i class="ti ti-cash"></i> Caja</button>
     <button class="nav-item" onclick="ir('cierre',this)"><i class="ti ti-chart-bar"></i> Cierre mensual</button>
   </div>
@@ -415,7 +412,7 @@ function renderTablaClientes(data){
     <td>${c.dni||'-'}</td><td>${c.telefono||'-'}</td><td>${c.email||'-'}</td>
     <td>${vehsHtml}</td>
     <td style="display:flex;gap:4px">
-      <button class="btn btn-sm" onclick="verFichaCliente('${c.id}')"><i class="ti ti-eye"></i></button>
+      <button class="btn btn-sm" onclick="fichaCliente('${c.id}')"><i class="ti ti-eye"></i> Ver ficha</button>
       <button class="btn btn-sm" onclick="modalCliente('${c.id}')"><i class="ti ti-edit"></i></button>
       <button class="btn btn-sm btn-danger" onclick="eliminarCliente('${c.id}')"><i class="ti ti-trash"></i></button>
     </td></tr>`;}).join('')}
@@ -428,31 +425,83 @@ function filtrarClientes(){
   document.getElementById('tabla-clientes').innerHTML = renderTablaClientes(filtrado);
 }
 
-async function verFichaCliente(id){
-  const c = (window._clientes||[]).find(x=>x.id===id)||{};
-  const {data:vehs} = await supa.from('vehiculos').select('*').eq('cliente_id',id);
-  abrirModal(`
-    <div class="modal-title"><span><i class="ti ti-user"></i> ${c.nombre} ${c.apellido}</span><button class="btn btn-sm" onclick="cerrarModal()"><i class="ti ti-x"></i></button></div>
-    <div class="grid2" style="margin-bottom:12px">
-      <div><div style="font-size:11px;color:var(--text2)">DNI</div><div style="font-weight:500">${c.dni||'-'}</div></div>
-      <div><div style="font-size:11px;color:var(--text2)">Teléfono</div><div style="font-weight:500">${c.telefono||'-'}</div></div>
-      <div><div style="font-size:11px;color:var(--text2)">Email</div><div style="font-weight:500">${c.email||'-'}</div></div>
-      <div><div style="font-size:11px;color:var(--text2)">Dirección</div><div style="font-weight:500">${c.direccion||'-'}</div></div>
-    </div>
-    <div class="sep"></div>
-    <div style="font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--text2);margin-bottom:8px"><i class="ti ti-car"></i> Vehículos (${vehs?.length||0})</div>
-    ${vehs?.length?vehs.map(v=>`
-      <div style="display:flex;gap:12px;align-items:center;padding:8px;background:var(--bg);border-radius:8px;margin-bottom:6px">
-        <i class="ti ti-car" style="font-size:20px;color:var(--azul)"></i>
-        <div style="flex:1">
-          <div style="font-weight:500">${v.marca} ${v.modelo} ${v.anio||''}</div>
-          <div style="font-size:12px;color:var(--text2)">Patente: ${v.patente} · Color: ${v.color||'-'} · KM: ${v.kilometraje||'-'}</div>
+async function fichaCliente(cliId){
+  const c = (window._clientes||[]).find(x=>x.id===cliId)||{};
+  const [{data:vehs},{data:ords},{data:pres},{data:movs}] = await Promise.all([
+    supa.from('vehiculos').select('*').eq('cliente_id',cliId),
+    supa.from('ordenes').select('*').eq('cliente_id',cliId).order('fecha_ingreso',{ascending:false}),
+    supa.from('presupuestos').select('*').eq('cliente_id',cliId).order('fecha',{ascending:false}),
+    supa.from('cuenta_corriente').select('*').eq('cliente_id',cliId).order('fecha',{ascending:false})
+  ]);
+  const saldo = movs?.reduce((a,m)=>m.tipo==='debito'?a+Number(m.monto):a-Number(m.monto),0)||0;
+  const ultimaVisita = ords?.length ? fmtFecha(ords[0].fecha_ingreso) : '-';
+  document.getElementById('content').innerHTML = `
+  <div class="card" style="margin-bottom:16px">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+      <div style="display:flex;align-items:center;gap:12px">
+        <div class="avatar" style="width:48px;height:48px;font-size:16px">${iniciales(c.nombre+' '+c.apellido)}</div>
+        <div>
+          <div style="font-size:18px;font-weight:700">${c.nombre} ${c.apellido}</div>
+          <div style="font-size:13px;color:var(--text2);margin-top:2px">${c.telefono||'-'} &nbsp;·&nbsp; ${c.email||'-'}</div>
         </div>
-      </div>`).join(''):'<p style="font-size:13px;color:var(--text2)">Sin vehículos cargados</p>'}
-    <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px">
-      <button class="btn" onclick="modalCliente('${id}')"><i class="ti ti-edit"></i> Editar</button>
-      <button class="btn" onclick="cerrarModal()">Cerrar</button>
-    </div>`);
+      </div>
+      <div style="display:flex;gap:8px">
+        <button class="btn" onclick="renderClientes()"><i class="ti ti-arrow-left"></i> Volver</button>
+        <button class="btn btn-primary" onclick="modalCliente('${cliId}')"><i class="ti ti-edit"></i> Editar</button>
+      </div>
+    </div>
+  </div>
+  <div class="grid4" style="margin-bottom:16px">
+    <div class="metric"><div class="metric-label">Total órdenes</div><div class="metric-value blue">${ords?.length||0}</div></div>
+    <div class="metric"><div class="metric-label">Saldo cuenta</div><div class="metric-value ${saldo>0?'red':saldo<0?'green':''}">${saldo>0?'Debe':'A favor'} ${fmt(Math.abs(saldo))}</div></div>
+    <div class="metric"><div class="metric-label">Última visita</div><div class="metric-value" style="font-size:18px">${ultimaVisita}</div></div>
+    <div class="metric"><div class="metric-label">Vehículos</div><div class="metric-value amber">${vehs?.length||0}</div></div>
+  </div>
+  <div class="card" style="margin-bottom:16px">
+    <div class="seccion-title" style="margin-bottom:12px"><i class="ti ti-car"></i> Vehículos</div>
+    ${vehs?.length?`<div class="table-wrap"><table><thead><tr><th>Patente</th><th>Marca</th><th>Modelo</th><th>Año</th></tr></thead><tbody>
+    ${vehs.map(v=>`<tr><td><strong>${v.patente}</strong></td><td>${v.marca||'-'}</td><td>${v.modelo||'-'}</td><td>${v.anio||'-'}</td></tr>`).join('')}
+    </tbody></table></div>`:'<p style="font-size:13px;color:var(--text2)">Sin vehículos registrados</p>'}
+  </div>
+  <div class="card" style="margin-bottom:16px">
+    <div class="seccion-title" style="margin-bottom:12px"><i class="ti ti-file-text"></i> Órdenes de trabajo</div>
+    ${ords?.length?`<div class="table-wrap"><table><thead><tr><th>#</th><th>Fecha</th><th>Vehículo</th><th>Estado</th><th>Total</th></tr></thead><tbody>
+    ${ords.map(o=>`<tr>
+      <td><strong>#${o.numero}</strong></td>
+      <td>${fmtFecha(o.fecha_ingreso)}</td>
+      <td>${o.vehiculo_patente||''} ${o.vehiculo_marca||''} ${o.vehiculo_modelo||''}</td>
+      <td>${badgeEstado(o.estado)}</td>
+      <td><strong>${fmt(o.total)}</strong></td>
+    </tr>`).join('')}
+    </tbody></table></div>`:'<p style="font-size:13px;color:var(--text2)">Sin órdenes</p>'}
+  </div>
+  <div class="card" style="margin-bottom:16px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <div class="seccion-title"><i class="ti ti-credit-card"></i> Movimientos de cuenta</div>
+      <button class="btn btn-primary btn-sm" onclick="modalMovimiento('${cliId}')"><i class="ti ti-plus"></i> Nuevo movimiento</button>
+    </div>
+    ${movs?.length?`<div class="table-wrap"><table><thead><tr><th>Fecha</th><th>Descripción</th><th>Tipo</th><th>Monto</th></tr></thead><tbody>
+    ${movs.map(m=>`<tr>
+      <td>${fmtFecha(m.fecha)}</td>
+      <td>${m.concepto||'-'}</td>
+      <td>${m.tipo==='debito'?'<span class="badge badge-red">Débito</span>':'<span class="badge badge-green">Crédito</span>'}</td>
+      <td class="${m.tipo==='debito'?'red':'green'}">${fmt(m.monto)}</td>
+    </tr>`).join('')}
+    </tbody></table></div>`:'<p style="font-size:13px;color:var(--text2)">Sin movimientos</p>'}
+  </div>
+  <div class="card">
+    <div class="seccion-title" style="margin-bottom:12px"><i class="ti ti-calculator"></i> Presupuestos</div>
+    ${pres?.length?`<div class="table-wrap"><table><thead><tr><th>#</th><th>Fecha</th><th>Estado</th><th>Total</th><th></th></tr></thead><tbody>
+    ${pres.map(p=>{const eb=p.estado==='aprobado'?'badge-green':p.estado==='rechazado'?'badge-red':'badge-amber';
+    return `<tr>
+      <td><strong>#${p.numero}</strong></td>
+      <td>${fmtFecha(p.fecha)}</td>
+      <td><span class="badge ${eb}">${p.estado}</span></td>
+      <td><strong>${fmt(p.total)}</strong></td>
+      <td><button class="btn btn-sm" onclick="verPresupuesto('${p.id}')"><i class="ti ti-eye"></i> Ver</button></td>
+    </tr>`;}).join('')}
+    </tbody></table></div>`:'<p style="font-size:13px;color:var(--text2)">Sin presupuestos</p>'}
+  </div>`;
 }
 
 function modalCliente(id){
@@ -565,14 +614,9 @@ async function eliminarVehiculo(id){
   await renderVehiculos();
 }
 
-async function renderOrdenes(){
-  const {data} = await supa.from('ordenes').select('*').order('created_at',{ascending:false});
-  document.getElementById('content').innerHTML = `
-  <div style="display:flex;justify-content:flex-end;margin-bottom:20px">
-    <button class="btn btn-primary" onclick="modalOrden()"><i class="ti ti-plus"></i> Nueva orden</button>
-  </div>
-  <div class="card" style="padding:0">
-  ${data?.length?`<table><thead><tr><th>#</th><th>Cliente</th><th>Vehículo</th><th>Ingreso</th><th>Mecánico</th><th>Prioridad</th><th>Estado</th><th>Total</th><th></th></tr></thead><tbody>
+function renderTablaOrdenes(data){
+  if(!data?.length) return '<div class="empty"><i class="ti ti-file-off"></i><p>No hay órdenes</p></div>';
+  return `<table><thead><tr><th>#</th><th>Cliente</th><th>Vehículo</th><th>Ingreso</th><th>Mecánico</th><th>Prioridad</th><th>Estado</th><th>Total</th><th></th></tr></thead><tbody>
   ${data.map(o=>`<tr>
     <td><strong>#${o.numero}</strong></td><td>${o.cliente_nombre||'-'}</td>
     <td>${o.vehiculo_patente||''} ${o.vehiculo_marca||''} ${o.vehiculo_modelo||''}</td>
@@ -580,9 +624,33 @@ async function renderOrdenes(){
     <td>${badgePrioridad(o.prioridad)}</td><td>${badgeEstado(o.estado)}</td>
     <td><strong>${fmt(o.total)}</strong></td>
     <td><button class="btn btn-sm" onclick="modalOrden('${o.id}')"><i class="ti ti-edit"></i></button></td>
-  </tr>`).join('')}</tbody></table>`:'<div class="empty"><i class="ti ti-file-off"></i><p>No hay órdenes</p></div>'}
-  </div>`;
+  </tr>`).join('')}</tbody></table>`;
+}
+
+function filtrarOrdenes(filtro, btn){
+  document.querySelectorAll('.filtro-orden').forEach(b=>b.style.background=b.style.color='');
+  btn.style.background='var(--primary)'; btn.style.color='#fff';
+  const todos = window._ordenes||[];
+  const mapa = {urgentes:'urgente',proceso:'en_proceso',listas:'lista',entregadas:'entregada'};
+  const filtrado = filtro==='todas' ? todos : todos.filter(o=>o.estado===mapa[filtro]);
+  document.getElementById('tabla-ordenes').innerHTML = renderTablaOrdenes(filtrado);
+}
+
+async function renderOrdenes(){
+  const {data} = await supa.from('ordenes').select('*').order('created_at',{ascending:false});
   window._ordenes = data||[];
+  document.getElementById('content').innerHTML = `
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px">
+    <div style="display:flex;gap:6px;flex-wrap:wrap">
+      <button class="btn btn-sm filtro-orden" style="background:var(--primary);color:#fff" onclick="filtrarOrdenes('todas',this)">Todas</button>
+      <button class="btn btn-sm filtro-orden" onclick="filtrarOrdenes('urgentes',this)">Urgentes</button>
+      <button class="btn btn-sm filtro-orden" onclick="filtrarOrdenes('proceso',this)">En proceso</button>
+      <button class="btn btn-sm filtro-orden" onclick="filtrarOrdenes('listas',this)">Listas</button>
+      <button class="btn btn-sm filtro-orden" onclick="filtrarOrdenes('entregadas',this)">Entregadas</button>
+    </div>
+    <button class="btn btn-primary" onclick="modalOrden()"><i class="ti ti-plus"></i> Nueva orden</button>
+  </div>
+  <div class="card" style="padding:0" id="tabla-ordenes">${renderTablaOrdenes(data)}</div>`;
 }
 
 async function modalOrden(id){
