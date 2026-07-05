@@ -513,7 +513,7 @@ async function renderClientes(){
 
 function renderTablaClientes(data){
   if(!data.length) return '<div class="empty"><i class="ti ti-users"></i><p>No hay clientes registrados</p></div>';
-  return `<div class="table-wrap"><table><thead><tr><th></th><th>Nombre</th><th>DNI</th><th>Teléfono</th><th>Email</th><th>Vehículos</th><th></th></tr></thead><tbody>
+  return `<div class="table-wrap"><table><thead><tr><th></th><th>Nombre</th><th class="hide-mobile">DNI</th><th>Teléfono</th><th class="hide-mobile">Email</th><th>Vehículos</th><th></th></tr></thead><tbody>
   ${data.map(c=>{
     const vehs = window._vehsPorCliente?.[c.id]||[];
     const vehsHtml = vehs.length
@@ -522,12 +522,14 @@ function renderTablaClientes(data){
     return `<tr>
     <td><div class="avatar">${iniciales(c.nombre+' '+c.apellido)}</div></td>
     <td><div style="font-weight:500">${c.nombre} ${c.apellido}</div></td>
-    <td>${c.dni||'-'}</td><td>${c.telefono||'-'}</td><td>${c.email||'-'}</td>
+    <td class="hide-mobile">${c.dni||'-'}</td><td>${c.telefono||'-'}</td><td class="hide-mobile">${c.email||'-'}</td>
     <td>${vehsHtml}</td>
-    <td style="display:flex;gap:4px">
-      <button class="btn btn-sm" onclick="fichaCliente('${c.id}')"><i class="ti ti-eye"></i> Ver ficha</button>
-      <button class="btn btn-sm" onclick="modalCliente('${c.id}')"><i class="ti ti-edit"></i></button>
-      <button class="btn btn-sm btn-danger" onclick="eliminarCliente('${c.id}')"><i class="ti ti-trash"></i></button>
+    <td style="white-space:nowrap">
+      <div style="display:flex;gap:4px;flex-wrap:nowrap">
+        <button class="btn btn-sm" onclick="fichaCliente('${c.id}')"><i class="ti ti-eye"></i> Ver ficha</button>
+        <button class="btn btn-sm" onclick="modalCliente('${c.id}')"><i class="ti ti-edit"></i></button>
+        <button class="btn btn-sm btn-danger" onclick="eliminarCliente('${c.id}')"><i class="ti ti-trash"></i></button>
+      </div>
     </td></tr>`;}).join('')}
   </tbody></table></div>`;
 }
@@ -773,7 +775,12 @@ function renderTablaOrdenes(data){
     <td>${fmtFecha(o.fecha_ingreso)}</td><td>${o.mecanico||'-'}</td>
     <td>${badgePrioridad(o.prioridad)}</td><td>${badgeEstado(o.estado)}</td>
     <td><strong>${fmt(o.total)}</strong></td>
-    <td><button class="btn btn-sm" onclick="modalOrden('${o.id}')"><i class="ti ti-edit"></i></button></td>
+    <td style="white-space:nowrap">
+      <div style="display:flex;gap:4px">
+        <button class="btn btn-sm" onclick="modalOrden('${o.id}')"><i class="ti ti-edit"></i></button>
+        <button class="btn btn-sm btn-danger" onclick="eliminarOrden('${o.id}')"><i class="ti ti-trash"></i></button>
+      </div>
+    </td>
   </tr>`).join('')}</tbody></table></div>`;
 }
 
@@ -1232,6 +1239,15 @@ async function guardarOrden(id){
   cerrarModal(); await renderOrdenes();
 }
 
+async function eliminarOrden(id){
+  if(!confirm('¿Eliminar esta orden de trabajo? Se borrarán también sus repuestos, fotos y recordatorios.')) return;
+  await supa.from('orden_repuestos').delete().eq('orden_id',id);
+  await supa.from('orden_fotos').delete().eq('orden_id',id);
+  await supa.from('recordatorios').delete().eq('orden_id',id);
+  await supa.from('ordenes').delete().eq('id',id);
+  await renderOrdenes();
+}
+
 function previsualizarFotosOrden(){
   const input = document.getElementById('f-fotos');
   const preview = document.getElementById('preview-fotos-ord');
@@ -1335,7 +1351,8 @@ async function renderSeguimientos(){
       .gte('fecha_ingreso',hoy8.toISOString().slice(0,10)).lte('fecha_ingreso',hoy4.toISOString().slice(0,10)).neq('estado','cancelado'),
     supa.from('recordatorios').select('*').lte('fecha_recordatorio',hoy7.toISOString().slice(0,10)).eq('estado','pendiente').order('fecha_recordatorio')
   ]);
-  const seguimientosList = segData.data||[];
+  const descartados = JSON.parse(localStorage.getItem('seg_descartados')||'[]');
+  const seguimientosList = (segData.data||[]).filter(o=>!descartados.includes(o.id));
   const recordsList = recData.data||[];
   document.getElementById('content').innerHTML=`
   <div class="card" style="margin-bottom:16px;border-left:3px solid #25D366">
@@ -1348,7 +1365,10 @@ async function renderSeguimientos(){
       return `<div style="display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--border);gap:8px;flex-wrap:wrap">
         <div><div style="font-weight:600">${o.cliente_nombre||'-'} <span style="font-weight:400;font-size:12px;color:var(--text2)">${veh}</span></div>
         <div style="font-size:12px;color:var(--text2)">Orden #${o.numero} · ${fmtFecha(o.fecha_ingreso)} · ${badgeEstado(o.estado)}</div></div>
-        <div>${waUrl?`<a href="${waUrl}" target="_blank" class="btn btn-sm" style="background:#25D366;color:#fff;border:none"><i class="ti ti-brand-whatsapp"></i> Enviar</a>`:'<span style="font-size:12px;color:var(--text2)">Sin teléfono</span>'}</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          ${waUrl?`<a href="${waUrl}" target="_blank" class="btn btn-sm" style="background:#25D366;color:#fff;border:none"><i class="ti ti-brand-whatsapp"></i> Enviar</a>`:'<span style="font-size:12px;color:var(--text2)">Sin teléfono</span>'}
+          <button class="btn btn-sm btn-danger" onclick="descartarSeguimiento('${o.id}')"><i class="ti ti-trash"></i></button>
+        </div>
       </div>`;
     }).join(''):'<div style="text-align:center;padding:20px;color:var(--text2)"><i class="ti ti-circle-check" style="font-size:28px;display:block;margin-bottom:8px;color:#25D366"></i>Sin seguimientos pendientes</div>'}
   </div>
@@ -1368,10 +1388,25 @@ async function renderSeguimientos(){
         <div style="display:flex;gap:6px;flex-wrap:wrap">
           ${waUrl?`<a href="${waUrl}" target="_blank" class="btn btn-sm" style="background:#25D366;color:#fff;border:none"><i class="ti ti-brand-whatsapp"></i> Avisar</a>`:''}
           <button class="btn btn-sm" onclick="marcarRecordatorioEnviado('${r.id}')"><i class="ti ti-check"></i> Enviado</button>
+          <button class="btn btn-sm btn-danger" onclick="eliminarRecordatorioSeg('${r.id}')"><i class="ti ti-trash"></i></button>
         </div>
       </div>`;
     }).join(''):'<div style="text-align:center;padding:20px;color:var(--text2)"><i class="ti ti-bell-off" style="font-size:28px;display:block;margin-bottom:8px"></i>Sin recordatorios próximos</div>'}
   </div>`;
+}
+
+async function eliminarRecordatorioSeg(id){
+  if(!confirm('¿Eliminar este recordatorio?')) return;
+  await supa.from('recordatorios').delete().eq('id',id);
+  renderSeguimientos();
+}
+
+function descartarSeguimiento(ordenId){
+  if(!confirm('¿Descartar este seguimiento? No se borra la orden, solo se oculta de la lista.')) return;
+  const descartados = JSON.parse(localStorage.getItem('seg_descartados')||'[]');
+  if(!descartados.includes(ordenId)) descartados.push(ordenId);
+  localStorage.setItem('seg_descartados', JSON.stringify(descartados));
+  renderSeguimientos();
 }
 
 async function marcarRecordatorioEnviado(id){
