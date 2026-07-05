@@ -459,6 +459,7 @@ function modalCliente(id){
   const c = id ? (window._clientes||[]).find(x=>x.id===id) : {};
   abrirModal(`
     <div class="modal-title"><span>${id?'Editar cliente':'Nuevo cliente'}</span><button class="btn btn-sm" onclick="cerrarModal()"><i class="ti ti-x"></i></button></div>
+    <div class="seccion-title" style="margin-bottom:8px"><i class="ti ti-user"></i> Datos del cliente</div>
     <div class="grid2">
       <div><label>Nombre *</label><input id="f-nombre" value="${c?.nombre||''}" placeholder="Requerido"></div>
       <div><label>Teléfono *</label><input id="f-tel" value="${c?.telefono||''}" placeholder="Requerido"></div>
@@ -471,17 +472,41 @@ function modalCliente(id){
       <div><label>Email</label><input id="f-email" value="${c?.email||''}" placeholder="Opcional"></div>
       <div><label>Dirección</label><input id="f-dir" value="${c?.direccion||''}" placeholder="Opcional"></div>
     </div>
+    ${!id?`
+    <div class="sep"></div>
+    <div class="seccion-title" style="margin-bottom:4px"><i class="ti ti-car"></i> Vehículo <span style="font-size:11px;color:var(--text2);font-weight:400">(opcional, podés agregar uno después)</span></div>
+    <div class="grid2">
+      <div><label>Marca</label><input id="f-v-marca" placeholder="Ej: Peugeot"></div>
+      <div><label>Modelo</label><input id="f-v-modelo" placeholder="Ej: 308"></div>
+    </div>
+    <div class="grid2">
+      <div><label>Patente</label><input id="f-v-patente" placeholder="Ej: AB123CD" style="text-transform:uppercase"></div>
+      <div><label>Año</label><input id="f-v-anio" placeholder="Ej: 2019" type="number"></div>
+    </div>`:''}
     <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:20px">
       <button class="btn" onclick="cerrarModal()">Cancelar</button>
-      <button class="btn btn-primary" onclick="guardarCliente('${id||''}')">Guardar</button>
+      <button class="btn btn-primary" onclick="guardarCliente('${id||''}')"><i class="ti ti-check"></i> Guardar</button>
     </div>`);
 }
 
 async function guardarCliente(id){
-  const data={nombre:document.getElementById('f-nombre').value.trim(),apellido:document.getElementById('f-apellido').value.trim(),dni:document.getElementById('f-dni').value.trim(),telefono:document.getElementById('f-tel').value.trim(),email:document.getElementById('f-email').value.trim(),direccion:document.getElementById('f-dir').value.trim()};
+  const data={nombre:document.getElementById('f-nombre').value.trim(),apellido:document.getElementById('f-apellido').value.trim(),dni:document.getElementById('f-dni').value.trim()||'',telefono:document.getElementById('f-tel').value.trim(),email:document.getElementById('f-email').value.trim(),direccion:document.getElementById('f-dir').value.trim()};
   if(!data.nombre||!data.telefono){alert('Completá nombre y teléfono');return;}
-  if(id){await supa.from('clientes').update(data).eq('id',id);}
-  else{await supa.from('clientes').insert(data);}
+  if(id){
+    await supa.from('clientes').update(data).eq('id',id);
+  } else {
+    const {data:nuevo} = await supa.from('clientes').insert(data).select().single();
+    // Guardar vehículo si se completó
+    if(nuevo){
+      const marca=document.getElementById('f-v-marca')?.value.trim();
+      const modelo=document.getElementById('f-v-modelo')?.value.trim();
+      const patente=document.getElementById('f-v-patente')?.value.trim().toUpperCase();
+      const anio=document.getElementById('f-v-anio')?.value.trim();
+      if(marca&&modelo&&patente){
+        await supa.from('vehiculos').insert({cliente_id:nuevo.id,marca,modelo,patente,anio:anio||null});
+      }
+    }
+  }
   cerrarModal(); await renderClientes();
 }
 
@@ -578,6 +603,8 @@ async function modalOrden(id){
   }
   abrirModal(`
     <div class="modal-title"><span>${id?'Editar orden #'+o.numero:'Nueva orden de trabajo'}</span><button class="btn btn-sm" onclick="cerrarModal()"><i class="ti ti-x"></i></button></div>
+
+    <!-- Cliente + Vehículo -->
     <div class="grid2">
       <div>
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
@@ -606,12 +633,9 @@ async function modalOrden(id){
         ${o?.vehiculo_id?`<option value="${o.vehiculo_id}" selected>${o.vehiculo_patente} ${o.vehiculo_marca} ${o.vehiculo_modelo}</option>`:''}
       </select></div>
     </div>
-    <div class="grid3">
-      <div><label>Prioridad</label><select id="f-pri">
-        <option value="normal" ${o?.prioridad==='normal'?'selected':''}>Normal</option>
-        <option value="urgente" ${o?.prioridad==='urgente'?'selected':''}>Urgente</option>
-        <option value="puede_esperar" ${o?.prioridad==='puede_esperar'?'selected':''}>Puede esperar</option>
-      </select></div>
+
+    <!-- Estado + Mecánico -->
+    <div class="grid2" style="margin-top:4px">
       <div><label>Estado</label><select id="f-est">
         <option value="recibido" ${o?.estado==='recibido'?'selected':''}>Recibido</option>
         <option value="en_proceso" ${o?.estado==='en_proceso'?'selected':''}>En proceso</option>
@@ -625,22 +649,40 @@ async function modalOrden(id){
         <option value="Marcelo" ${o?.mecanico==='Marcelo'?'selected':''}>Marcelo</option>
       </select></div>
     </div>
-    <div class="grid2">
-      <div><label>KM al ingreso</label><input id="f-km" value="${o?.kilometraje_ingreso||''}"></div>
-      <div><label>Tiempo real trabajado (hs)</label><input type="number" id="f-tiempo" value="${o?.tiempo_real_horas||''}" step="0.5" min="0" placeholder="0"></div>
+
+    <!-- Descripción principal -->
+    <div><label>¿Qué hay que hacer? *</label><textarea id="f-desc" rows="3" placeholder="Describí el trabajo a realizar...">${o?.descripcion_cliente||''}</textarea></div>
+    <div><label>Trabajos realizados</label><textarea id="f-trab" rows="2" placeholder="Completar al finalizar...">${o?.trabajos_realizados||''}</textarea></div>
+
+    <!-- Ver más detalles -->
+    <div style="margin-top:12px">
+      <button type="button" onclick="toggleDetallesOrden()" style="background:none;border:none;color:var(--primary);font-size:13px;cursor:pointer;display:flex;align-items:center;gap:4px;padding:0">
+        <i class="ti ti-chevron-down" id="ico-detalles"></i> <span id="lbl-detalles">Ver más detalles</span>
+      </button>
+      <div id="detalles-extra" style="display:${id?'block':'none'}">
+        <div class="grid2" style="margin-top:10px">
+          <div><label>KM al ingreso</label><input id="f-km" value="${o?.kilometraje_ingreso||''}" placeholder="Opcional"></div>
+          <div><label>Tiempo trabajado (hs)</label><input type="number" id="f-tiempo" value="${o?.tiempo_real_horas||''}" step="0.5" min="0" placeholder="0"></div>
+        </div>
+        <div><label>Diagnóstico del mecánico</label><textarea id="f-diag" rows="2">${o?.diagnostico_mecanico||''}</textarea></div>
+        <div><label>Observaciones internas</label><textarea id="f-obs" rows="2">${o?.observaciones||''}</textarea></div>
+        <div class="grid2">
+          <div><label>Fecha ingreso</label><input type="date" id="f-fing" value="${o?.fecha_ingreso||hoy()}"></div>
+          <div><label>Fecha entrega estimada</label><input type="date" id="f-fent" value="${o?.fecha_entrega||''}"></div>
+        </div>
+        <div><label>Prioridad</label><select id="f-pri">
+          <option value="normal" ${o?.prioridad==='normal'?'selected':''}>Normal</option>
+          <option value="urgente" ${o?.prioridad==='urgente'?'selected':''}>Urgente</option>
+          <option value="puede_esperar" ${o?.prioridad==='puede_esperar'?'selected':''}>Puede esperar</option>
+        </select></div>
+        <div style="margin-top:10px;display:flex;align-items:center;gap:8px">
+          <input type="checkbox" id="f-autorizo" style="width:auto" ${o?.cliente_autorizo?'checked':''}>
+          <label style="margin:0;cursor:pointer" for="f-autorizo">Cliente autorizó los trabajos</label>
+        </div>
+      </div>
     </div>
-    <div><label>Descripción del cliente</label><textarea id="f-desc" rows="2">${o?.descripcion_cliente||''}</textarea></div>
-    <div><label>Trabajos realizados</label><textarea id="f-trab" rows="3">${o?.trabajos_realizados||''}</textarea></div>
-    <div><label>Diagnóstico del mecánico</label><textarea id="f-diag" rows="3">${o?.diagnostico_mecanico||''}</textarea></div>
-    <div><label>Observaciones internas</label><textarea id="f-obs" rows="2">${o?.observaciones||''}</textarea></div>
-    <div class="grid2">
-      <div><label>Fecha ingreso</label><input type="date" id="f-fing" value="${o?.fecha_ingreso||hoy()}"></div>
-      <div><label>Fecha entrega estimada</label><input type="date" id="f-fent" value="${o?.fecha_entrega||''}"></div>
-    </div>
-    <div style="margin-top:12px;display:flex;align-items:center;gap:8px">
-      <input type="checkbox" id="f-autorizo" style="width:auto" ${o?.cliente_autorizo?'checked':''}>
-      <label style="margin:0;cursor:pointer" for="f-autorizo">Cliente autorizó los trabajos</label>
-    </div>
+
+    <!-- Repuestos -->
     <div class="sep"></div>
     <div class="seccion-title" style="margin-bottom:8px"><i class="ti ti-package"></i> Repuestos</div>
     <div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap;align-items:flex-end">
@@ -663,8 +705,10 @@ async function modalOrden(id){
       <div><label>Mano de obra $</label><input type="number" id="f-total" value="${manoObra}" oninput="actualizarTotalOrden()"></div>
       <div style="padding-bottom:10px;font-size:15px;font-weight:700">Total: <span id="gran-total-ord" class="green">${fmt(manoObra)}</span></div>
     </div>
+
+    <!-- Fotos -->
     <div class="sep"></div>
-    <div class="seccion-title" style="margin-bottom:8px"><i class="ti ti-camera"></i> Fotos del vehículo / repuestos</div>
+    <div class="seccion-title" style="margin-bottom:8px"><i class="ti ti-camera"></i> Fotos</div>
     <div id="fotos-existentes-ord" style="margin-bottom:8px"></div>
     <label style="margin-top:0;cursor:pointer;display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border:1.5px dashed var(--border);border-radius:8px;color:var(--text2)">
       <i class="ti ti-photo-plus"></i> Seleccionar fotos
@@ -678,6 +722,19 @@ async function modalOrden(id){
   if(o?.cliente_id) filtrarVehsOrden(o.cliente_id, o.vehiculo_id);
   renderRepuestosOrden();
   if(id) cargarFotosExistentes(id);
+}
+
+function toggleDetallesOrden(){
+  const d = document.getElementById('detalles-extra');
+  const ico = document.getElementById('ico-detalles');
+  const lbl = document.getElementById('lbl-detalles');
+  const abierto = d.style.display !== 'none';
+  d.style.display = abierto ? 'none' : 'block';
+  ico.className = abierto ? 'ti ti-chevron-down' : 'ti ti-chevron-up';
+  lbl.textContent = abierto ? 'Ver más detalles' : 'Ocultar detalles';
+  // Asegurar valores por defecto si están ocultos
+  if(!document.getElementById('f-fing')?.value)
+    document.getElementById('f-fing') && (document.getElementById('f-fing').value = hoy());
 }
 
 function toggleNuevoClienteOrden(){
@@ -770,18 +827,18 @@ async function guardarOrden(id){
     cliente_id:cliId,vehiculo_id:vehId,
     cliente_nombre:`${cls?.nombre} ${cls?.apellido}`,
     vehiculo_patente:veh?.patente,vehiculo_marca:veh?.marca,vehiculo_modelo:veh?.modelo,
-    prioridad:document.getElementById('f-pri').value,
+    prioridad:document.getElementById('f-pri')?.value||'normal',
     estado:document.getElementById('f-est').value,
     mecanico:document.getElementById('f-mec').value,
-    kilometraje_ingreso:document.getElementById('f-km').value,
+    kilometraje_ingreso:document.getElementById('f-km')?.value||'',
     descripcion_cliente:document.getElementById('f-desc').value,
     trabajos_realizados:document.getElementById('f-trab').value,
-    diagnostico_mecanico:document.getElementById('f-diag').value,
-    observaciones:document.getElementById('f-obs').value,
-    fecha_ingreso:document.getElementById('f-fing').value,
-    fecha_entrega:document.getElementById('f-fent').value,
-    tiempo_real_horas:Number(document.getElementById('f-tiempo').value)||null,
-    cliente_autorizo:document.getElementById('f-autorizo').checked,
+    diagnostico_mecanico:document.getElementById('f-diag')?.value||'',
+    observaciones:document.getElementById('f-obs')?.value||'',
+    fecha_ingreso:document.getElementById('f-fing')?.value||hoy(),
+    fecha_entrega:document.getElementById('f-fent')?.value||null,
+    tiempo_real_horas:Number(document.getElementById('f-tiempo')?.value)||null,
+    cliente_autorizo:document.getElementById('f-autorizo')?.checked||false,
     total:manoObra+totalReps
   };
   let ordenId = id;
