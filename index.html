@@ -292,8 +292,8 @@ function mesActual(){ return hoy().slice(0,7); }
 function iniciales(n){ return (n||'?').split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase(); }
 
 function badgeEstado(e){
-  const m={recibido:'badge-amber',en_proceso:'badge-blue',listo:'badge-green',entregado:'badge-gray',cancelado:'badge-red'};
-  const l={recibido:'Recibido',en_proceso:'En proceso',listo:'Listo',entregado:'Entregado',cancelado:'Cancelado'};
+  const m={recibido:'badge-amber',en_diagnostico:'badge-amber',en_proceso:'badge-blue',listo:'badge-green',entregado:'badge-gray',cancelado:'badge-red'};
+  const l={recibido:'Recibido',en_diagnostico:'En diagnóstico',en_proceso:'En proceso',listo:'Listo',entregado:'Entregado',cancelado:'Cancelado'};
   return `<span class="badge ${m[e]||'badge-gray'}">${l[e]||e}</span>`;
 }
 function badgePrioridad(p){
@@ -337,11 +337,13 @@ async function render(){
 }
 
 async function renderDashboard(){
-  const [clientes, ordenes, turnos, caja] = await Promise.all([
+  const [clientes, ordenes, turnos, caja, vehiculos, ultimasOrdenes] = await Promise.all([
     supa.from('clientes').select('id'),
     supa.from('ordenes').select('*'),
     supa.from('turnos').select('*').eq('fecha', hoy()),
-    supa.from('caja').select('*')
+    supa.from('caja').select('*'),
+    supa.from('vehiculos').select('id,patente,marca,modelo,cliente_id,clientes(nombre,apellido,telefono)').order('patente'),
+    supa.from('ordenes').select('vehiculo_id,fecha_ingreso').order('fecha_ingreso',{ascending:false})
   ]);
   const mes = caja.data?.filter(c=>c.fecha?.slice(0,7)===mesActual());
   const ing = mes?.filter(c=>c.tipo==='ingreso').reduce((a,b)=>a+Number(b.monto),0)||0;
@@ -349,6 +351,12 @@ async function renderDashboard(){
   const abiertas = ordenes.data?.filter(o=>o.estado!=='entregado'&&o.estado!=='cancelado').length||0;
   const turnosHoy = turnos.data||[];
   const ordenesRecientes = (ordenes.data||[]).slice(-5).reverse();
+  // Recordatorios de service (vehículos sin visita en 6+ meses)
+  const haceSeismeses = new Date(); haceSeismeses.setMonth(haceSeismeses.getMonth()-6);
+  const limiteService = haceSeismeses.toISOString().slice(0,10);
+  const ultimaPorVeh = {};
+  (ultimasOrdenes.data||[]).forEach(o=>{ if(o.vehiculo_id&&!ultimaPorVeh[o.vehiculo_id]) ultimaPorVeh[o.vehiculo_id]=o.fecha_ingreso; });
+  const recordatorios = (vehiculos.data||[]).filter(v=>{ const u=ultimaPorVeh[v.id]; return !u||u<limiteService; }).slice(0,8);
   document.getElementById('content').innerHTML = `
   <div class="grid4" style="margin-bottom:20px">
     <div class="metric"><div class="metric-label">Clientes</div><div class="metric-value blue">${clientes.data?.length||0}</div></div>
@@ -376,7 +384,30 @@ async function renderDashboard(){
         </div>`).join(''):
         '<div class="empty" style="padding:24px"><i class="ti ti-file-off"></i><p>Sin órdenes</p></div>'}
     </div>
-  </div>`;
+  </div>
+  ${recordatorios.length?`
+  <div class="card" style="margin-top:16px">
+    <div class="seccion-title" style="margin-bottom:12px;color:var(--amber)"><i class="ti ti-clock-alert"></i> Recordatorios de service <span style="font-size:11px;font-weight:400;color:var(--text2)">— más de 6 meses sin visita</span></div>
+    ${recordatorios.map(v=>{
+      const ultima=ultimaPorVeh[v.id];
+      const cli=v.clientes;
+      const tel=(cli?.telefono||'').replace(/\D/g,'');
+      return `<div style="display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--border);gap:8px;flex-wrap:wrap">
+        <div style="display:flex;align-items:center;gap:10px">
+          <i class="ti ti-car" style="color:var(--azul);font-size:20px;flex-shrink:0"></i>
+          <div>
+            <div style="font-weight:600">${v.patente} <span style="font-weight:400;color:var(--text2)">${v.marca||''} ${v.modelo||''}</span></div>
+            <div style="font-size:12px;color:var(--text2)">${cli?.nombre||''} ${cli?.apellido||''}${cli?.telefono?' · '+cli.telefono:''}</div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="font-size:12px;color:var(--text2)">${ultima?'Última visita: '+fmtFecha(ultima):'Sin visitas registradas'}</span>
+          ${tel?`<a href="https://wa.me/54${tel}" target="_blank" class="btn btn-sm" style="background:#25D366;color:#fff;border:none"><i class="ti ti-brand-whatsapp"></i></a>`:''}
+        </div>
+      </div>`;
+    }).join('')}
+  </div>`:''}
+`;
 }
 
 async function renderClientes(){
@@ -668,7 +699,7 @@ function filtrarOrdenes(filtro, btn){
   document.querySelectorAll('.filtro-orden').forEach(b=>b.style.background=b.style.color='');
   btn.style.background='var(--primary)'; btn.style.color='#fff';
   const todos = window._ordenes||[];
-  const mapa = {urgentes:'urgente',proceso:'en_proceso',listas:'lista',entregadas:'entregada'};
+  const mapa = {urgentes:'urgente',proceso:'en_proceso',listas:'listo',entregadas:'entregado'};
   const filtrado = filtro==='todas' ? todos : todos.filter(o=>o.estado===mapa[filtro]);
   document.getElementById('tabla-ordenes').innerHTML = renderTablaOrdenes(filtrado);
 }
@@ -746,6 +777,7 @@ async function modalOrden(id){
     <div class="grid2" style="margin-top:4px">
       <div><label>Estado</label><select id="f-est">
         <option value="recibido" ${o?.estado==='recibido'?'selected':''}>Recibido</option>
+        <option value="en_diagnostico" ${o?.estado==='en_diagnostico'?'selected':''}>En diagnóstico</option>
         <option value="en_proceso" ${o?.estado==='en_proceso'?'selected':''}>En proceso</option>
         <option value="listo" ${o?.estado==='listo'?'selected':''}>Listo</option>
         <option value="entregado" ${o?.estado==='entregado'?'selected':''}>Entregado</option>
@@ -1139,6 +1171,7 @@ async function renderTurnos(){
   ${proximos.length?`<table><thead><tr><th>Fecha</th><th>Hora</th><th>Cliente</th><th>Vehículo</th><th>Trabajo</th><th>Mecánico</th><th>Duración</th><th>Estado</th><th></th></tr></thead><tbody>
   ${proximos.map(t=>`<tr><td><strong>${fmtFecha(t.fecha)}</strong></td><td>${t.hora?.slice(0,5)}</td><td>${t.cliente_nombre||'-'}</td><td style="font-size:12px">${t.vehiculo_patente?`<strong>${t.vehiculo_patente}</strong> ${t.vehiculo_modelo||''}`:'-'}</td><td>${t.tipo_trabajo}</td><td>${t.mecanico||'-'}</td><td>${t.duracion_estimada} min</td><td>${badgeEstado(t.estado)}</td>
     <td style="display:flex;gap:4px">
+      ${(t.estado==='pendiente'||t.estado==='confirmado')?`<button class="btn btn-sm btn-primary" onclick="recibirClienteTurno('${t.id}')" title="Recibir cliente"><i class="ti ti-user-check"></i> Recibir</button>`:''}
       <button class="btn btn-sm" onclick="modalTurno('${t.id}')"><i class="ti ti-edit"></i></button>
       <button class="btn btn-sm btn-danger" onclick="eliminarTurno('${t.id}')"><i class="ti ti-trash"></i></button>
     </td></tr>`).join('')}</tbody></table>`:'<div class="empty"><i class="ti ti-calendar-off"></i><p>No hay turnos próximos</p></div>'}
@@ -1274,6 +1307,161 @@ async function eliminarTurno(id){
   if(!confirm('¿Eliminar este turno?'))return;
   await supa.from('turnos').delete().eq('id',id);
   await renderTurnos();
+}
+
+async function recibirClienteTurno(turnoId){
+  const t = (window._turnos||[]).find(x=>x.id===turnoId);
+  if(!t) return;
+
+  // Buscar datos del cliente y vehículo si están registrados
+  let cliNombre = t.cliente_nombre||'';
+  let cliId = t.cliente_id||null;
+  let vehId = t.vehiculo_id||null;
+  let vehPatente = t.vehiculo_patente||'';
+  let vehMarca = t.vehiculo_marca||'';
+  let vehModelo = t.vehiculo_modelo||'';
+
+  if(cliId){
+    const {data:cli} = await supa.from('clientes').select('nombre,apellido').eq('id',cliId).single();
+    if(cli) cliNombre = `${cli.nombre} ${cli.apellido||''}`.trim();
+  }
+  if(vehId){
+    const {data:veh} = await supa.from('vehiculos').select('patente,marca,modelo').eq('id',vehId).single();
+    if(veh){ vehPatente=veh.patente||''; vehMarca=veh.marca||''; vehModelo=veh.modelo||''; }
+  }
+
+  abrirModal(`
+    <div class="modal-title"><span><i class="ti ti-user-check"></i> Recibir cliente — ${cliNombre||t.tipo_trabajo}</span><button class="btn btn-sm" onclick="cerrarModal()"><i class="ti ti-x"></i></button></div>
+
+    <div class="grid2">
+      <div>
+        <label>Cliente</label>
+        <input id="rct-cli-nombre" value="${cliNombre}" placeholder="Nombre del cliente">
+      </div>
+      <div>
+        <label>Vehículo</label>
+        <input id="rct-veh-desc" value="${[vehPatente,vehMarca,vehModelo].filter(Boolean).join(' ')}" placeholder="Patente / descripción">
+      </div>
+    </div>
+    <div>
+      <label>Trabajo solicitado</label>
+      <textarea id="rct-desc" rows="2">${t.tipo_trabajo||''}</textarea>
+    </div>
+    <div>
+      <label>Observaciones del turno</label>
+      <textarea id="rct-obs-turno" rows="2">${t.observaciones||''}</textarea>
+    </div>
+
+    <div class="sep"></div>
+    <div class="seccion-title" style="margin-bottom:10px"><i class="ti ti-clipboard-check"></i> Checklist de recepción</div>
+    <div style="display:flex;flex-direction:column;gap:8px;background:#f9f9f9;border:1px solid var(--border);border-radius:8px;padding:12px">
+      <label style="display:flex;align-items:center;gap:8px;margin:0;font-size:13px;color:var(--text);cursor:pointer">
+        <input type="checkbox" id="rct-chk1" style="width:auto"> Se revisó el exterior del vehículo
+      </label>
+      <label style="display:flex;align-items:center;gap:8px;margin:0;font-size:13px;color:var(--text);cursor:pointer">
+        <input type="checkbox" id="rct-chk2" style="width:auto"> Cliente fue informado del tiempo estimado
+      </label>
+      <label style="display:flex;align-items:center;gap:8px;margin:0;font-size:13px;color:var(--text);cursor:pointer">
+        <input type="checkbox" id="rct-chk3" style="width:auto"> Cliente autorizó diagnóstico
+      </label>
+    </div>
+
+    <div class="sep"></div>
+    <div class="seccion-title" style="margin-bottom:10px"><i class="ti ti-car"></i> Datos de ingreso</div>
+    <div class="grid2">
+      <div><label>KM al ingreso</label><input type="number" id="rct-km" placeholder="Opcional"></div>
+      <div><label>Nivel de nafta</label>
+        <select id="rct-nafta">
+          <option value="">— Sin especificar —</option>
+          <option value="Lleno">Lleno</option>
+          <option value="3/4">3/4</option>
+          <option value="1/2">1/2</option>
+          <option value="1/4">1/4</option>
+          <option value="Reserva">Reserva</option>
+        </select>
+      </div>
+    </div>
+    <div><label>Daños existentes al ingreso</label><textarea id="rct-danos" rows="2" placeholder="Rayones, abolladuras u otros daños previos..."></textarea></div>
+
+    <div class="grid2" style="margin-top:4px">
+      <div><label>Estado inicial</label>
+        <select id="rct-estado">
+          <option value="en_diagnostico" selected>En diagnóstico</option>
+          <option value="en_proceso">En proceso</option>
+          <option value="recibido">Recibido</option>
+        </select>
+      </div>
+      <div><label>Mecánico</label>
+        <select id="rct-mec">
+          <option value="">Sin asignar</option>
+          <option value="Angel" ${t.mecanico==='Angel'?'selected':''}>Angel</option>
+          <option value="Matias" ${t.mecanico==='Matias'?'selected':''}>Matias</option>
+          <option value="Marcelo" ${t.mecanico==='Marcelo'?'selected':''}>Marcelo</option>
+        </select>
+      </div>
+    </div>
+
+    <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:20px">
+      <button class="btn" onclick="cerrarModal()">Cancelar</button>
+      <button class="btn btn-primary" onclick="guardarRecepcionTurno('${turnoId}','${cliId||''}','${vehId||''}')"><i class="ti ti-file-plus"></i> Crear orden de trabajo</button>
+    </div>`);
+}
+
+async function guardarRecepcionTurno(turnoId, cliId, vehId){
+  const cliNombre = document.getElementById('rct-cli-nombre').value.trim();
+  const vehDesc = document.getElementById('rct-veh-desc').value.trim();
+  const desc = document.getElementById('rct-desc').value.trim();
+  const obsTurno = document.getElementById('rct-obs-turno').value.trim();
+  const km = document.getElementById('rct-km').value||'';
+  const nafta = document.getElementById('rct-nafta').value;
+  const danos = document.getElementById('rct-danos').value.trim();
+  const estado = document.getElementById('rct-estado').value;
+  const mecanico = document.getElementById('rct-mec').value;
+
+  if(!cliNombre){alert('Ingresá el nombre del cliente');return;}
+
+  // Armar observaciones combinadas
+  const partes = [];
+  if(nafta) partes.push(`Nafta: ${nafta}`);
+  if(danos) partes.push(`Daños previos: ${danos}`);
+  if(obsTurno) partes.push(obsTurno);
+  const obsFinal = partes.join('\n');
+
+  // Resolver datos de vehículo
+  let vehPatente='', vehMarca='', vehModelo='';
+  if(vehId){
+    const {data:veh} = await supa.from('vehiculos').select('patente,marca,modelo').eq('id',vehId).single();
+    if(veh){vehPatente=veh.patente||'';vehMarca=veh.marca||'';vehModelo=veh.modelo||'';}
+  } else {
+    vehPatente = vehDesc;
+  }
+
+  const ordenData = {
+    cliente_id: cliId||null,
+    cliente_nombre: cliNombre,
+    vehiculo_id: vehId||null,
+    vehiculo_patente: vehPatente,
+    vehiculo_marca: vehMarca,
+    vehiculo_modelo: vehModelo,
+    descripcion_cliente: desc,
+    observaciones: obsFinal,
+    kilometraje_ingreso: km,
+    estado: estado,
+    mecanico: mecanico,
+    fecha_ingreso: hoy(),
+    prioridad: 'normal',
+    total: 0
+  };
+
+  const {error:ordErr} = await supa.from('ordenes').insert(ordenData);
+  if(ordErr){alert('Error al crear orden: '+ordErr.message);return;}
+
+  const {error:turErr} = await supa.from('turnos').update({estado:'en_proceso'}).eq('id',turnoId);
+  if(turErr) console.warn('No se pudo actualizar el turno:', turErr.message);
+
+  cerrarModal();
+  await renderTurnos();
+  alert('Orden de trabajo creada correctamente.');
 }
 
 async function aplicarComisionATodos(){
