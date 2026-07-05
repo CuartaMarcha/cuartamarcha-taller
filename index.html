@@ -573,10 +573,28 @@ async function modalOrden(id){
   abrirModal(`
     <div class="modal-title"><span>${id?'Editar orden #'+o.numero:'Nueva orden de trabajo'}</span><button class="btn btn-sm" onclick="cerrarModal()"><i class="ti ti-x"></i></button></div>
     <div class="grid2">
-      <div><label>Cliente *</label><select id="f-cli" onchange="filtrarVehsOrden()">
-        <option value="">Seleccioná</option>
-        ${cls?.map(c=>`<option value="${c.id}" ${o?.cliente_id===c.id?'selected':''}>${c.nombre} ${c.apellido}</option>`).join('')}
-      </select></div>
+      <div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+          <label style="margin:0">Cliente *</label>
+          <button type="button" class="btn btn-sm" style="font-size:11px;padding:2px 8px;height:auto" onclick="toggleNuevoClienteOrden()"><i class="ti ti-user-plus"></i> Nuevo</button>
+        </div>
+        <select id="f-cli" onchange="filtrarVehsOrden()">
+          <option value="">Seleccioná</option>
+          ${cls?.map(c=>`<option value="${c.id}" ${o?.cliente_id===c.id?'selected':''}>${c.nombre} ${c.apellido||''}</option>`).join('')}
+        </select>
+        <div id="nuevo-cli-form" style="display:none;margin-top:8px;background:#f9f9f9;border:1px solid var(--border);border-radius:8px;padding:12px">
+          <div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:8px">Nuevo cliente rápido</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+            <input id="nc-nombre" placeholder="Nombre *" style="font-size:13px;padding:7px 10px">
+            <input id="nc-apellido" placeholder="Apellido" style="font-size:13px;padding:7px 10px">
+          </div>
+          <input id="nc-tel" placeholder="Teléfono *" style="font-size:13px;padding:7px 10px;width:100%;margin-bottom:8px">
+          <div style="display:flex;gap:8px">
+            <button type="button" class="btn btn-primary btn-sm" style="flex:1;font-size:12px" onclick="guardarNuevoClienteOrden()"><i class="ti ti-check"></i> Guardar y seleccionar</button>
+            <button type="button" class="btn btn-sm" style="font-size:12px" onclick="toggleNuevoClienteOrden()">Cancelar</button>
+          </div>
+        </div>
+      </div>
       <div><label>Vehículo *</label><select id="f-veh">
         <option value="">Seleccioná cliente primero</option>
         ${o?.vehiculo_id?`<option value="${o.vehiculo_id}" selected>${o.vehiculo_patente} ${o.vehiculo_marca} ${o.vehiculo_modelo}</option>`:''}
@@ -654,6 +672,31 @@ async function modalOrden(id){
   if(o?.cliente_id) filtrarVehsOrden(o.cliente_id, o.vehiculo_id);
   renderRepuestosOrden();
   if(id) cargarFotosExistentes(id);
+}
+
+function toggleNuevoClienteOrden(){
+  const f = document.getElementById('nuevo-cli-form');
+  if(f) f.style.display = f.style.display==='none' ? 'block' : 'none';
+}
+
+async function guardarNuevoClienteOrden(){
+  const nombre = document.getElementById('nc-nombre').value.trim();
+  const apellido = document.getElementById('nc-apellido').value.trim();
+  const tel = document.getElementById('nc-tel').value.trim();
+  if(!nombre||!tel){alert('Nombre y teléfono son obligatorios');return;}
+  const {data:nuevo, error} = await supa.from('clientes').insert({nombre, apellido, telefono:tel}).select().single();
+  if(error){alert('Error al guardar cliente: '+error.message);return;}
+  // Agregar al selector y seleccionarlo
+  const sel = document.getElementById('f-cli');
+  const opt = document.createElement('option');
+  opt.value = nuevo.id;
+  opt.textContent = `${nuevo.nombre} ${nuevo.apellido||''}`.trim();
+  opt.selected = true;
+  sel.appendChild(opt);
+  // Actualizar cache de clientes para vehículos
+  if(!window._vehsOrden) window._vehsOrden = [];
+  filtrarVehsOrden(nuevo.id);
+  toggleNuevoClienteOrden();
 }
 
 function filtrarVehsOrden(cliId, selId){
