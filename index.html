@@ -458,9 +458,13 @@ async function fichaCliente(cliId){
     <div class="metric"><div class="metric-label">Vehículos</div><div class="metric-value amber">${vehs?.length||0}</div></div>
   </div>
   <div class="card" style="margin-bottom:16px">
-    <div class="seccion-title" style="margin-bottom:12px"><i class="ti ti-car"></i> Vehículos</div>
-    ${vehs?.length?`<div class="table-wrap"><table><thead><tr><th>Patente</th><th>Marca</th><th>Modelo</th><th>Año</th></tr></thead><tbody>
-    ${vehs.map(v=>`<tr><td><strong>${v.patente}</strong></td><td>${v.marca||'-'}</td><td>${v.modelo||'-'}</td><td>${v.anio||'-'}</td></tr>`).join('')}
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <div class="seccion-title"><i class="ti ti-car"></i> Vehículos</div>
+      <button class="btn btn-primary btn-sm" onclick="modalVehiculoParaCliente('${cliId}')"><i class="ti ti-plus"></i> Agregar vehículo</button>
+    </div>
+    ${vehs?.length?`<div class="table-wrap"><table><thead><tr><th>Patente</th><th>Marca</th><th>Modelo</th><th>Año</th><th></th></tr></thead><tbody>
+    ${vehs.map(v=>`<tr><td><strong>${v.patente}</strong></td><td>${v.marca||'-'}</td><td>${v.modelo||'-'}</td><td>${v.anio||'-'}</td>
+    <td><button class="btn btn-sm" onclick="modalVehiculo('${v.id}')"><i class="ti ti-edit"></i></button></td></tr>`).join('')}
     </tbody></table></div>`:'<p style="font-size:13px;color:var(--text2)">Sin vehículos registrados</p>'}
   </div>
   <div class="card" style="margin-bottom:16px">
@@ -580,6 +584,39 @@ async function renderVehiculos(){
     </td></tr>`).join('')}</tbody></table>`:'<div class="empty"><i class="ti ti-car"></i><p>No hay vehículos</p></div>'}
   </div>`;
   window._vehiculos = data||[];
+}
+
+async function modalVehiculoParaCliente(cliId){
+  const {data:cls} = await supa.from('clientes').select('id,nombre,apellido').order('nombre');
+  abrirModal(`
+    <div class="modal-title"><span>Nuevo vehículo</span><button class="btn btn-sm" onclick="cerrarModal()"><i class="ti ti-x"></i></button></div>
+    <div><label>Cliente</label><select id="f-cliente-id">
+      ${cls?.map(c=>`<option value="${c.id}" ${c.id===cliId?'selected':''}>${c.nombre} ${c.apellido||''}</option>`).join('')}
+    </select></div>
+    <div class="grid2"><div><label>Marca *</label><input id="f-marca" placeholder="Ej: Peugeot"></div><div><label>Modelo *</label><input id="f-modelo" placeholder="Ej: 308"></div></div>
+    <div class="grid3"><div><label>Patente *</label><input id="f-patente" style="text-transform:uppercase"></div><div><label>Año</label><input id="f-anio" type="number" placeholder="Ej: 2019"></div><div><label>Color</label><input id="f-color"></div></div>
+    <div><label>Kilometraje</label><input id="f-km" type="number" placeholder="Opcional"></div>
+    <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:20px">
+      <button class="btn" onclick="cerrarModal()">Cancelar</button>
+      <button class="btn btn-primary" onclick="guardarVehiculoYVolverFicha('${cliId}')"><i class="ti ti-check"></i> Guardar</button>
+    </div>`);
+}
+
+async function guardarVehiculoYVolverFicha(cliId){
+  const data={
+    cliente_id:document.getElementById('f-cliente-id').value,
+    marca:document.getElementById('f-marca').value.trim(),
+    modelo:document.getElementById('f-modelo').value.trim(),
+    patente:document.getElementById('f-patente').value.trim().toUpperCase(),
+    anio:document.getElementById('f-anio').value.trim()||null,
+    color:document.getElementById('f-color').value.trim(),
+    kilometraje:document.getElementById('f-km').value.trim()||null
+  };
+  if(!data.marca||!data.modelo||!data.patente){alert('Completá marca, modelo y patente');return;}
+  const {error} = await supa.from('vehiculos').insert(data);
+  if(error){alert('Error al guardar: '+error.message);return;}
+  cerrarModal();
+  fichaCliente(cliId);
 }
 
 async function modalVehiculo(id){
@@ -1605,21 +1642,19 @@ async function generarPresupuestoPDF(id){
 async function enviarPresupuestoWP(id){
   try{
     const btn = event?.currentTarget;
-    if(btn){btn.disabled=true;btn.innerHTML='<i class="ti ti-loader"></i> Subiendo...';}
+    if(btn){btn.disabled=true;btn.innerHTML='<i class="ti ti-loader"></i> Generando...';}
     const {doc, p} = await _buildPresupuestoPDF(id);
-    const blob = doc.output('blob');
-    const path = `presupuestos/P${p.numero}-${Date.now()}.pdf`;
-    const {error:upErr} = await supa.storage.from('orden-fotos').upload(path, blob, {contentType:'application/pdf', upsert:true});
-    if(upErr) throw new Error('No se pudo subir el PDF: '+upErr.message);
-    const {data:urlData} = supa.storage.from('orden-fotos').getPublicUrl(path);
+    // Descargar el PDF automáticamente
+    doc.save(`Presupuesto-N${p.numero}-${(p.cliente_nombre||'CF').replace(/ /g,'-')}.pdf`);
+    // Obtener teléfono del cliente
     let tel = '';
     if(p.cliente_id){
       const {data:cl} = await supa.from('clientes').select('telefono').eq('id',p.cliente_id).single();
       tel = (cl?.telefono||'').replace(/\D/g,'');
     }
-    const msg = `Hola ${p.cliente_nombre||''}! Te enviamos el presupuesto N°${p.numero} de *Cuarta Marcha Taller Mecánico*.\n\nTotal: *${fmt(p.total)}*\nValidez: 15 días\n\n📄 Ver presupuesto: ${urlData.publicUrl}\n\nCualquier consulta llamanos al 351-344-3965.`;
+    const msg = `Hola ${p.cliente_nombre||''}! Te enviamos el presupuesto N°${p.numero} de *Cuarta Marcha Taller Mecánico*.\n\nTotal: *${fmt(p.total)}*\nValidez: 15 días\n\n_Adjuntamos el PDF con el detalle completo._\n\nCualquier consulta llamanos al 351-344-3965.`;
     const url = `https://wa.me/${tel?'54'+tel:''}?text=${encodeURIComponent(msg)}`;
-    window.open(url,'_blank');
+    setTimeout(()=>window.open(url,'_blank'), 800);
     if(btn){btn.disabled=false;btn.innerHTML='<i class="ti ti-brand-whatsapp"></i> WhatsApp';}
   }catch(e){
     alert('Error: '+e.message);console.error(e);
