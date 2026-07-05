@@ -1256,6 +1256,23 @@ async function guardarOrden(id){
       });
     }
   }
+  // Egreso automático en caja por repuestos pedidos al proveedor
+  if(ordenId){
+    const repsPedidos = reps.filter(r=>r.estado==='pedido');
+    const totalPedido = repsPedidos.reduce((a,r)=>a+r.precio_unitario*r.cantidad,0);
+    const markerRep = `[REP:${ordenId}]`;
+    await supa.from('caja').delete().ilike('concepto',`%${markerRep}%`);
+    if(totalPedido>0){
+      const {data:ord} = await supa.from('ordenes').select('numero').eq('id',ordenId).single();
+      await supa.from('caja').insert({
+        tipo:'egreso',
+        monto:totalPedido,
+        concepto:`${markerRep} Repuestos pedidos — Orden #${ord?.numero||''}`,
+        categoria:'Repuestos',
+        fecha:hoy()
+      });
+    }
+  }
   const estadoFinal = data.estado;
   cerrarModal();
   await renderOrdenes();
@@ -1288,6 +1305,10 @@ async function guardarOrden(id){
 async function registrarPagoOrden(ordenId, cliId, cliNombre, totalOrden, montoPago, tipo){
   const {data:ord} = await supa.from('ordenes').select('numero').eq('id',ordenId).single();
   const num = ord?.numero||'';
+  // Si pago completo: eliminar todos los débitos vinculados a esta orden (repuestos pendientes, presupuesto, etc.)
+  if(tipo==='completo'){
+    await supa.from('cuenta_corriente').delete().ilike('concepto',`%[ORD:${ordenId}]%`).eq('cliente_id',cliId);
+  }
   // Crédito en cuenta corriente
   await supa.from('cuenta_corriente').insert({
     cliente_id:cliId,
