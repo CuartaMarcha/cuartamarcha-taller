@@ -780,9 +780,11 @@ async function guardarOrden(id){
   };
   let ordenId = id;
   if(id){
-    await supa.from('ordenes').update(data).eq('id',id);
+    const {error:updErr} = await supa.from('ordenes').update(data).eq('id',id);
+    if(updErr){alert('Error al actualizar orden: '+updErr.message);return;}
   } else {
-    const {data:nueva} = await supa.from('ordenes').insert(data).select().single();
+    const {data:nueva, error:insErr} = await supa.from('ordenes').insert(data).select().single();
+    if(insErr){alert('Error al guardar orden: '+insErr.message);return;}
     ordenId = nueva?.id;
   }
   if(ordenId){
