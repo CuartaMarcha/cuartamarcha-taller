@@ -1655,13 +1655,44 @@ async function guardarRecepcionTurno(turnoId, cliId, vehId){
   const estado = document.getElementById('rct-estado').value;
   const mecanico = document.getElementById('rct-mec').value;
   if(!cliNombre){alert('Ingresá el nombre del cliente');return;}
+
+  const t = (window._turnos||[]).find(x=>x.id===turnoId)||{};
+
+  // Si no hay cliente registrado, crearlo automáticamente
+  if(!cliId){
+    const nombreParts = cliNombre.split(' ');
+    const {data:nuevoCli} = await supa.from('clientes').insert({
+      nombre: nombreParts[0]||cliNombre,
+      apellido: nombreParts.slice(1).join(' ')||'',
+      telefono: t.telefono_contacto||''
+    }).select().single();
+    if(nuevoCli) cliId = nuevoCli.id;
+  }
+
+  // Si no hay vehículo registrado, crearlo automáticamente
   let vehPatente='', vehMarca='', vehModelo='';
   if(vehId){
     const {data:veh} = await supa.from('vehiculos').select('patente,marca,modelo').eq('id',vehId).single();
     if(veh){vehPatente=veh.patente||'';vehMarca=veh.marca||'';vehModelo=veh.modelo||'';}
   } else {
-    vehPatente = vehDesc;
+    // Intentar parsear "Marca Modelo" del campo vehDesc o del turno
+    const autoStr = vehDesc || t.vehiculo_modelo || '';
+    const parts = autoStr.trim().split(' ');
+    vehMarca = parts[0]||'';
+    vehModelo = parts.slice(1).join(' ')||'';
+    vehPatente = t.vehiculo_patente||'';
+    if(cliId && (vehMarca||vehPatente)){
+      const {data:nuevoVeh} = await supa.from('vehiculos').insert({
+        cliente_id: cliId,
+        marca: vehMarca,
+        modelo: vehModelo,
+        patente: vehPatente,
+        color: t.vehiculo_color||null
+      }).select().single();
+      if(nuevoVeh) vehId = nuevoVeh.id;
+    }
   }
+
   const {error:ordErr} = await supa.from('ordenes').insert({
     cliente_id:cliId||null, cliente_nombre:cliNombre,
     vehiculo_id:vehId||null, vehiculo_patente:vehPatente, vehiculo_marca:vehMarca, vehiculo_modelo:vehModelo,

@@ -331,6 +331,9 @@ function renderPaso3(){
     <label>Patente</label>
     <input id="t-patente" placeholder="Ej: AB 123 CD" style="text-transform:uppercase">
 
+    <label>Color del vehículo</label>
+    <input id="t-color" placeholder="Ej: Rojo, Blanco, Gris...">
+
     <label>Kilometraje aproximado</label>
     <input id="t-km" type="number" placeholder="Opcional">
 
@@ -378,6 +381,7 @@ async function confirmarTurno(){
   }
 
   const patente=document.getElementById('t-patente').value.trim().toUpperCase();
+  const color=document.getElementById('t-color').value.trim();
   const km=document.getElementById('t-km').value.trim();
   const obs=document.getElementById('t-obs').value.trim();
   const email=document.getElementById('t-email').value.trim();
@@ -386,6 +390,7 @@ async function confirmarTurno(){
     cliente_nombre: nombre,
     vehiculo_patente: patente||null,
     vehiculo_modelo: auto,
+    vehiculo_color: color||null,
     fecha: state.fecha,
     hora: state.slot,
     tipo_trabajo: 'A confirmar',
