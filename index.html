@@ -1238,6 +1238,24 @@ async function guardarOrden(id){
       }
     }
   }
+  // Sincronizar repuestos pendientes de pago con cuenta corriente
+  if(ordenId && cliId){
+    const repsPendientes = reps.filter(r=>r.estado==='pendiente_pago');
+    const totalPendiente = repsPendientes.reduce((a,r)=>a+r.precio_unitario*r.cantidad,0);
+    const marker = `[ORD:${ordenId}]`;
+    await supa.from('cuenta_corriente').delete().ilike('concepto',`%${marker}%`).eq('cliente_id',cliId);
+    if(totalPendiente>0){
+      const {data:ord} = await supa.from('ordenes').select('numero').eq('id',ordenId).single();
+      await supa.from('cuenta_corriente').insert({
+        cliente_id:cliId,
+        tipo:'debito',
+        monto:totalPendiente,
+        concepto:`${marker} Repuestos pendientes de pago — Orden #${ord?.numero||''}`,
+        fecha:hoy(),
+        saldo:0
+      });
+    }
+  }
   cerrarModal(); await renderOrdenes();
 }
 
@@ -2070,25 +2088,37 @@ async function generarPresupuestoPDF(id){
 }
 
 async function enviarPresupuestoWP(id){
+  const btn = event?.currentTarget;
   try{
-    const btn = event?.currentTarget;
-    if(btn){btn.disabled=true;btn.innerHTML='<i class="ti ti-loader"></i> Generando...';}
+    if(btn){btn.disabled=true;btn.innerHTML='<i class="ti ti-loader"></i> Subiendo PDF...';}
     const {doc, p} = await _buildPresupuestoPDF(id);
-    // Descargar el PDF automáticamente
-    doc.save(`Presupuesto-N${p.numero}-${(p.cliente_nombre||'CF').replace(/ /g,'-')}.pdf`);
+    // Subir PDF a Supabase Storage y obtener link público
+    let pdfUrl = '';
+    try{
+      const blob = doc.output('blob');
+      const fileName = `presupuesto-${p.numero}-${Date.now()}.pdf`;
+      const {error:upErr} = await supa.storage.from('presupuestos').upload(fileName, blob, {contentType:'application/pdf', upsert:true});
+      if(!upErr){
+        const {data:urlData} = supa.storage.from('presupuestos').getPublicUrl(fileName);
+        pdfUrl = urlData?.publicUrl||'';
+      }
+    }catch(e){ console.warn('No se pudo subir el PDF:', e); }
     // Obtener teléfono del cliente
     let tel = '';
     if(p.cliente_id){
       const {data:cl} = await supa.from('clientes').select('telefono').eq('id',p.cliente_id).single();
       tel = (cl?.telefono||'').replace(/\D/g,'');
     }
-    const msg = `Hola ${p.cliente_nombre||''}! Te enviamos el presupuesto N°${p.numero} de *Cuarta Marcha Taller Mecánico*.\n\nTotal: *${fmt(p.total)}*\nValidez: 15 días\n\n_Adjuntamos el PDF con el detalle completo._\n\nCualquier consulta llamanos al 351-344-3965.`;
-    const url = `https://wa.me/${tel?'54'+tel:''}?text=${encodeURIComponent(msg)}`;
-    setTimeout(()=>window.open(url,'_blank'), 800);
+    const msg = pdfUrl
+      ? `Hola ${p.cliente_nombre||''}! Te enviamos el presupuesto N°${p.numero} de *Cuarta Marcha Taller Mecánico*.\n\nTotal: *${fmt(p.total)}*\nValidez: 15 días\n\n📄 Ver presupuesto completo:\n${pdfUrl}\n\nCualquier consulta llamanos al 351-344-3965.`
+      : `Hola ${p.cliente_nombre||''}! Te enviamos el presupuesto N°${p.numero} de *Cuarta Marcha Taller Mecánico*.\n\nTotal: *${fmt(p.total)}*\nValidez: 15 días\n\nCualquier consulta llamanos al 351-344-3965.`;
+    const waUrl = `https://wa.me/${tel?'54'+tel:''}?text=${encodeURIComponent(msg)}`;
+    // También descargar localmente
+    doc.save(`Presupuesto-N${p.numero}.pdf`);
+    setTimeout(()=>window.open(waUrl,'_blank'), 600);
     if(btn){btn.disabled=false;btn.innerHTML='<i class="ti ti-brand-whatsapp"></i> WhatsApp';}
   }catch(e){
     alert('Error: '+e.message);console.error(e);
-    const btn = document.querySelector('[onclick*="enviarPresupuestoWP"]');
     if(btn){btn.disabled=false;btn.innerHTML='<i class="ti ti-brand-whatsapp"></i> WhatsApp';}
   }
 }
