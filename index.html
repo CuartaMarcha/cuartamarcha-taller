@@ -414,7 +414,7 @@ async function renderDashboard(){
     ${seguimientosList.length?seguimientosList.map(o=>{
       const tel = (o.clientes?.telefono||'').replace(/\D/g,'');
       const veh = [o.vehiculo_patente, o.vehiculo_modelo].filter(Boolean).join(' ');
-      const msg = `Hola ${(o.cliente_nombre||'').split(' ')[0]}! 👋 Te escribimos desde *Cuarta Marcha Taller Mecánico*.\n\n¿Cómo quedó tu ${veh||'vehículo'} después del trabajo que realizamos? Esperamos que todo esté perfecto 🔧\n\nSi estás conforme, te pedimos que nos dejes una reseña en Google, nos ayuda muchísimo 🙏\n👉 ${GOOGLE_REVIEW_URL}\n\nCualquier consulta, estamos a tu disposición. ¡Gracias!`;
+      const msg = `Hola ${(o.cliente_nombre||'').split(' ')[0]}! 👋 Te escribimos desde *Cuarta Marcha Taller Mecánico*.\n\n¿Nos gustaría saber cómo quedó tu vehículo después del trabajo que realizamos? Esperamos que todo esté perfecto 🔧\n\nSi tenés un momentito nos gustaría pedirte que nos dejes una reseña en Google, nos ayuda muchísimo 🙏\n👉 ${GOOGLE_REVIEW_URL}\n\nCualquier consulta no dudes en avisarnos! Gracias!`;
       const waUrl = tel ? `https://wa.me/54${tel}?text=${encodeURIComponent(msg)}` : '';
       return `<div style="display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--border);gap:8px;flex-wrap:wrap">
         <div>
