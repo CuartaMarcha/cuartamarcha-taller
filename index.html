@@ -1177,21 +1177,26 @@ async function verPresupuesto(id){
 }
 
 async function generarPresupuestoPDF(id){
-  const [{data:p},{data:items},{data:cli}] = await Promise.all([
+  try{
+  const [{data:p},{data:items}] = await Promise.all([
     supa.from('presupuestos').select('*').eq('id',id).single(),
-    supa.from('presupuesto_items').select('*').eq('presupuesto_id',id),
-    supa.from('presupuestos').select('*, clientes(nombre,apellido,telefono,email,direccion,dni)').eq('id',id).single()
+    supa.from('presupuesto_items').select('*').eq('presupuesto_id',id)
   ]);
-  const cliente = cli?.clientes;
-  const {jsPDF} = window.jspdf;
+  if(!p){alert('No se encontró el presupuesto');return;}
+  let cliente = null;
+  if(p.cliente_id){
+    const {data:cl} = await supa.from('clientes').select('*').eq('id',p.cliente_id).single();
+    cliente = cl;
+  }
+  const jsPDF = window.jspdf?.jsPDF || window.jsPDF;
+  if(!jsPDF){alert('Error: librería PDF no cargada. Recargá la página.');return;}
   const doc = new jsPDF();
   const w = doc.internal.pageSize.getWidth();
   const h = doc.internal.pageSize.getHeight();
-  const C = { negro:'#1a1a1a', rojo:'#CC1F1F', gris:'#f4f4f4', grisMed:'#e0e0e0', texto:'#1a1a1a', texto2:'#555' };
-  const rgb = hex=>{ const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16); return [r,g,b]; };
+  const mid = w/2;
 
   // ── Borde exterior ──
-  doc.setDrawColor(...rgb(C.grisMed)); doc.setLineWidth(0.3);
+  doc.setDrawColor(224,224,224); doc.setLineWidth(0.3);
   doc.rect(10,10,w-20,h-20,'S');
 
   // ── Header: logo + título ──
@@ -1203,81 +1208,74 @@ async function generarPresupuestoPDF(id){
       doc.addImage(img,'PNG',14,13,28,28); logoW=34;
     }catch(e){}
   }
-  // Título PRESUPUESTO
-  doc.setTextColor(...rgb(C.rojo));
-  doc.setFontSize(22); doc.setFont('helvetica','bold');
+
+  doc.setTextColor(200,23,26); doc.setFontSize(22); doc.setFont('helvetica','bold');
   doc.text('PRESUPUESTO', w-14, 24, {align:'right'});
   doc.setFontSize(10); doc.setFont('helvetica','normal');
-  doc.setTextColor(...rgb(C.texto2));
+  doc.setTextColor(100,100,100);
   doc.text(`N° ${p.numero}`, w-14, 32, {align:'right'});
   doc.text(`Fecha: ${fmtFecha(p.fecha)}`, w-14, 39, {align:'right'});
 
-  // Nombre taller debajo del logo
-  doc.setFontSize(11); doc.setFont('helvetica','bold'); doc.setTextColor(...rgb(C.negro));
+  doc.setFontSize(11); doc.setFont('helvetica','bold'); doc.setTextColor(26,26,26);
   doc.text('CUARTA MARCHA', 14+logoW, 22);
-  doc.setFontSize(8); doc.setFont('helvetica','normal'); doc.setTextColor(...rgb(C.texto2));
+  doc.setFontSize(8); doc.setFont('helvetica','normal'); doc.setTextColor(100,100,100);
   doc.text('Taller Mecánico', 14+logoW, 28);
   doc.text('San Isidro 1256, Córdoba Capital', 14+logoW, 34);
   doc.text('Tel: 351-344-3965', 14+logoW, 39);
 
-  // ── Línea roja separadora ──
-  doc.setDrawColor(...rgb(C.rojo)); doc.setLineWidth(1);
+  // ── Línea roja ──
+  doc.setDrawColor(200,23,26); doc.setLineWidth(1);
   doc.line(10,46,w-10,46);
 
-  // ── Caja de dos columnas: Taller | Cliente ──
-  const boxY=49, boxH=32, mid=w/2;
-  doc.setFillColor(...rgb(C.gris)); doc.rect(10,boxY,w-20,boxH,'F');
-  doc.setDrawColor(...rgb(C.grisMed)); doc.setLineWidth(0.3);
+  // ── Caja dos columnas ──
+  const boxY=49, boxH=32;
+  doc.setFillColor(244,244,244); doc.rect(10,boxY,w-20,boxH,'F');
+  doc.setDrawColor(224,224,224); doc.setLineWidth(0.3);
   doc.rect(10,boxY,w-20,boxH,'S');
   doc.line(mid,boxY,mid,boxY+boxH);
 
-  // Col izq: taller
-  doc.setFontSize(8); doc.setFont('helvetica','bold'); doc.setTextColor(...rgb(C.rojo));
+  doc.setFontSize(8); doc.setFont('helvetica','bold'); doc.setTextColor(200,23,26);
   doc.text('TALLER', 14,boxY+7);
-  doc.setFont('helvetica','bold'); doc.setTextColor(...rgb(C.negro));
-  doc.setFontSize(9);
+  doc.setFontSize(9); doc.setFont('helvetica','bold'); doc.setTextColor(26,26,26);
   doc.text('Cuarta Marcha Taller Mecánico', 14,boxY+14);
-  doc.setFont('helvetica','normal'); doc.setFontSize(8); doc.setTextColor(...rgb(C.texto2));
+  doc.setFontSize(8); doc.setFont('helvetica','normal'); doc.setTextColor(100,100,100);
   doc.text('San Isidro 1256, Córdoba Capital', 14,boxY+20);
   doc.text('Tel: 351-344-3965', 14,boxY+25);
   doc.text('cuartamarchataller@gmail.com', 14,boxY+30);
 
-  // Col der: cliente
-  doc.setFontSize(8); doc.setFont('helvetica','bold'); doc.setTextColor(...rgb(C.rojo));
+  doc.setFontSize(8); doc.setFont('helvetica','bold'); doc.setTextColor(200,23,26);
   doc.text('CLIENTE', mid+4,boxY+7);
-  doc.setFont('helvetica','bold'); doc.setFontSize(9); doc.setTextColor(...rgb(C.negro));
+  doc.setFontSize(9); doc.setFont('helvetica','bold'); doc.setTextColor(26,26,26);
   doc.text(p.cliente_nombre||'Consumidor Final', mid+4,boxY+14);
-  doc.setFont('helvetica','normal'); doc.setFontSize(8); doc.setTextColor(...rgb(C.texto2));
+  doc.setFontSize(8); doc.setFont('helvetica','normal'); doc.setTextColor(100,100,100);
   if(cliente?.telefono) doc.text(`Tel: ${cliente.telefono}`, mid+4,boxY+20);
   if(cliente?.email) doc.text(`Email: ${cliente.email}`, mid+4,boxY+25);
   if(cliente?.dni) doc.text(`DNI: ${cliente.dni}`, mid+4,boxY+30);
 
-  // ── Fila fecha / validez ──
+  // ── Barra negra fecha/validez ──
   const fY=boxY+boxH+2;
-  doc.setFillColor(...rgb(C.negro)); doc.rect(10,fY,w-20,8,'F');
+  doc.setFillColor(26,26,26); doc.rect(10,fY,w-20,8,'F');
   doc.setTextColor(255,255,255); doc.setFontSize(8); doc.setFont('helvetica','normal');
-  doc.text(`Fecha del presupuesto: ${fmtFecha(p.fecha)}`, 14,fY+5.5);
+  doc.text(`Fecha: ${fmtFecha(p.fecha)}`, 14,fY+5.5);
   doc.text('Validez: 15 días', w-14,fY+5.5,{align:'right'});
-  if(p.tipo_precio) doc.text(`Precio: ${p.tipo_precio==='tarjeta'?'Tarjeta':'Contado'}`, mid,fY+5.5,{align:'center'});
+  doc.text(p.tipo_precio==='tarjeta'?'Precio: Tarjeta':'Precio: Contado', mid,fY+5.5,{align:'center'});
 
-  // ── Tabla de ítems ──
+  // ── Tabla ítems ──
   let y=fY+12;
-  // Encabezado
-  doc.setFillColor(...rgb(C.negro)); doc.rect(10,y,w-20,8,'F');
+  doc.setFillColor(26,26,26); doc.rect(10,y,w-20,8,'F');
   doc.setTextColor(255,255,255); doc.setFontSize(9); doc.setFont('helvetica','bold');
   doc.text('DESCRIPCIÓN', 14,y+5.5);
   doc.text('UNIDADES', 122,y+5.5,{align:'center'});
-  doc.text('PRECIO UNIT.', 153,y+5.5,{align:'center'});
+  doc.text('P. UNIT.', 153,y+5.5,{align:'center'});
   doc.text('TOTAL', w-14,y+5.5,{align:'right'});
   y+=10;
 
-  // Filas
   doc.setFont('helvetica','normal'); doc.setFontSize(9);
   (items||[]).forEach((it,i)=>{
-    if(i%2===0){ doc.setFillColor(...rgb(C.gris)); doc.rect(10,y-4,w-20,9,'F'); }
-    doc.setDrawColor(...rgb(C.grisMed)); doc.setLineWidth(0.2);
+    if(i%2===0){ doc.setFillColor(248,248,248); doc.rect(10,y-4,w-20,9,'F'); }
+    doc.setDrawColor(224,224,224); doc.setLineWidth(0.2);
     doc.line(10,y+5,w-10,y+5);
-    doc.setTextColor(...rgb(C.texto));
+    doc.setTextColor(26,26,26);
     doc.text(String(it.descripcion||'').slice(0,55), 14,y+1);
     doc.text(String(it.cantidad), 122,y+1,{align:'center'});
     doc.text(fmt(it.precio_unitario), 153,y+1,{align:'center'});
@@ -1285,51 +1283,50 @@ async function generarPresupuestoPDF(id){
     y+=9;
   });
 
-  // ── Sección totales ──
+  // ── Totales ──
   y+=4;
   const totW=85, totX=w-10-totW;
-  doc.setDrawColor(...rgb(C.grisMed)); doc.setLineWidth(0.3);
+  doc.setDrawColor(224,224,224); doc.setLineWidth(0.3);
   doc.rect(totX,y,totW,8,'S');
-  doc.setTextColor(...rgb(C.texto2)); doc.setFontSize(9); doc.setFont('helvetica','normal');
+  doc.setTextColor(100,100,100); doc.setFontSize(9); doc.setFont('helvetica','normal');
   doc.text('SUB-TOTAL', totX+4,y+5.5);
   doc.text(fmt(p.total), w-14,y+5.5,{align:'right'});
   y+=8;
 
-  // Total final
-  doc.setFillColor(...rgb(C.rojo)); doc.rect(totX,y,totW,10,'F');
+  doc.setFillColor(200,23,26); doc.rect(totX,y,totW,10,'F');
   doc.setTextColor(255,255,255); doc.setFontSize(11); doc.setFont('helvetica','bold');
   doc.text('TOTAL', totX+4,y+7);
   doc.text(fmt(p.total), w-14,y+7,{align:'right'});
   y+=14;
 
-  // En letras
-  const letras=numeroALetras(Math.floor(Number(p.total)));
-  doc.setFontSize(8); doc.setFont('helvetica','italic'); doc.setTextColor(...rgb(C.texto2));
-  doc.text(`Son: ${letras} pesos`, 14,y);
+  doc.setFontSize(8); doc.setFont('helvetica','italic'); doc.setTextColor(100,100,100);
+  doc.text(`Son: ${numeroALetras(Math.floor(Number(p.total)))} pesos`, 14,y);
   y+=10;
 
   if(p.observaciones){
     doc.setFont('helvetica','normal');
-    doc.text(`Observaciones: ${p.observaciones}`, 14,y); y+=8;
+    doc.text(`Obs: ${p.observaciones}`, 14,y); y+=8;
   }
 
   // ── Firmas ──
   const firmY=Math.max(y+10,230);
-  doc.setDrawColor(...rgb(C.grisMed)); doc.setLineWidth(0.3);
-  doc.rect(10,firmY,w-20,32,'S'); doc.line(mid,firmY,mid,firmY+32);
-  doc.setFontSize(8); doc.setFont('helvetica','normal'); doc.setTextColor(...rgb(C.texto2));
-  doc.text('Firma del taller', mid/2+10, firmY+6, {align:'center'});
-  doc.text('Firma del cliente', mid+(w-mid)/2, firmY+6, {align:'center'});
-  doc.setDrawColor(...rgb(C.negro)); doc.setLineWidth(0.5);
-  doc.line(mid/2-20,firmY+24,mid/2+40,firmY+24);
-  doc.line(mid+(w-mid)/2-30,firmY+24,mid+(w-mid)/2+30,firmY+24);
+  doc.setDrawColor(224,224,224); doc.setLineWidth(0.3);
+  doc.rect(10,firmY,w-20,30,'S');
+  doc.line(mid,firmY,mid,firmY+30);
+  doc.setFontSize(8); doc.setFont('helvetica','normal'); doc.setTextColor(120,120,120);
+  doc.text('Firma del taller', mid/2+10, firmY+5, {align:'center'});
+  doc.text('Firma del cliente', mid+(w-mid)/2, firmY+5, {align:'center'});
+  doc.setDrawColor(26,26,26); doc.setLineWidth(0.4);
+  doc.line(30,firmY+22,mid-10,firmY+22);
+  doc.line(mid+10,firmY+22,w-30,firmY+22);
 
   // ── Footer ──
-  doc.setFillColor(...rgb(C.negro)); doc.rect(10,h-18,w-20,8,'F');
+  doc.setFillColor(26,26,26); doc.rect(10,h-16,w-20,7,'F');
   doc.setTextColor(255,255,255); doc.setFontSize(7); doc.setFont('helvetica','normal');
-  doc.text('Cuarta Marcha Taller Mecánico  |  San Isidro 1256, Córdoba Capital  |  351-344-3965  |  cuartamarchataller@gmail.com', w/2,h-13,{align:'center'});
+  doc.text('Cuarta Marcha Taller Mecánico  |  San Isidro 1256, Córdoba Capital  |  351-344-3965', mid,h-11.5,{align:'center'});
 
-  doc.save(`Presupuesto-N${p.numero}-${p.cliente_nombre?.replace(/ /g,'-')||'CF'}-${p.fecha}.pdf`);
+  doc.save(`Presupuesto-N${p.numero}-${(p.cliente_nombre||'CF').replace(/ /g,'-')}-${p.fecha}.pdf`);
+  }catch(e){alert('Error al generar PDF: '+e.message);console.error(e);}
 }
 
 async function aprobarPresupuesto(id){

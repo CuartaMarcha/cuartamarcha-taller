@@ -21,14 +21,14 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--gray);color
 @media(min-width:500px){.header-info{display:block}}
 
 /* ── Hero ── */
-.hero{background:var(--black);color:#fff;text-align:center;padding:40px 20px 50px}
+.hero{background:var(--black);color:#fff;text-align:center;padding:36px 20px 46px}
 .hero h1{font-size:26px;font-weight:800;margin-bottom:8px}
 .hero h1 span{color:var(--red)}
 .hero p{color:#aaa;font-size:14px;max-width:400px;margin:0 auto}
 
 /* ── Stepper ── */
 .stepper-wrap{background:var(--black);padding:0 20px 24px;display:flex;justify-content:center}
-.stepper{display:flex;gap:0;max-width:500px;width:100%}
+.stepper{display:flex;gap:0;max-width:400px;width:100%}
 .step{flex:1;text-align:center;position:relative}
 .step::after{content:'';position:absolute;top:14px;left:50%;width:100%;height:2px;background:#333;z-index:0}
 .step:last-child::after{display:none}
@@ -49,16 +49,6 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--gray);color
 .panel-title i{color:var(--red);font-size:20px}
 .panel-sub{font-size:13px;color:var(--text2);margin-bottom:20px}
 
-/* ── Servicios ── */
-.servicios-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-@media(max-width:400px){.servicios-grid{grid-template-columns:1fr}}
-.servicio-card{border:2px solid var(--gray2);border-radius:10px;padding:14px;cursor:pointer;transition:all .2s;background:var(--white)}
-.servicio-card:hover{border-color:var(--red);background:#fff5f5}
-.servicio-card.selected{border-color:var(--red);background:#fff5f5;box-shadow:0 0 0 3px rgba(200,23,26,.12)}
-.servicio-nombre{font-weight:600;font-size:14px;margin-bottom:4px}
-.servicio-detalle{font-size:12px;color:var(--text2);display:flex;gap:10px;flex-wrap:wrap}
-.servicio-badge{display:inline-flex;align-items:center;gap:3px;padding:2px 8px;background:var(--gray);border-radius:20px;font-size:11px;font-weight:500}
-
 /* ── Calendario ── */
 .cal-nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
 .cal-nav button{background:none;border:1px solid var(--gray2);border-radius:8px;padding:6px 12px;cursor:pointer;font-size:13px;color:var(--text)}
@@ -76,11 +66,10 @@ body{font-family:system-ui,-apple-system,sans-serif;background:var(--gray);color
 /* ── Slots de horario ── */
 .slots-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
 @media(max-width:400px){.slots-grid{grid-template-columns:repeat(3,1fr)}}
-.slot{padding:10px 6px;text-align:center;border:2px solid var(--gray2);border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;transition:all .15s}
+.slot{padding:12px 6px;text-align:center;border:2px solid var(--gray2);border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;transition:all .15s}
 .slot:hover{border-color:var(--red);background:#fff5f5}
 .slot.selected{background:var(--red);color:#fff;border-color:var(--red)}
 .slot.ocupado{background:var(--gray);color:#bbb;border-color:var(--gray2);cursor:not-allowed;text-decoration:line-through}
-.slot-cap{font-size:10px;font-weight:400;margin-top:2px}
 
 /* ── Formulario ── */
 label{display:block;font-size:12px;font-weight:600;color:var(--text2);margin-bottom:4px;margin-top:14px;text-transform:uppercase;letter-spacing:.04em}
@@ -90,8 +79,8 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--red)}
 
 /* ── Resumen ── */
 .resumen{background:var(--gray);border-radius:10px;padding:16px;margin-bottom:20px}
-.resumen-row{display:flex;justify-content:space-between;padding:5px 0;font-size:14px;border-bottom:1px solid var(--gray2)}
-.resumen-row:last-child{border-bottom:none;font-weight:700;font-size:16px;padding-top:10px}
+.resumen-row{display:flex;justify-content:space-between;padding:6px 0;font-size:14px;border-bottom:1px solid var(--gray2)}
+.resumen-row:last-child{border-bottom:none}
 .resumen-row span:first-child{color:var(--text2)}
 
 /* ── Buttons ── */
@@ -142,25 +131,21 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--red)}
 
 <div class="hero" id="hero-section">
   <h1>Reservá tu <span>turno</span> online</h1>
-  <p>Elegí el servicio, la fecha y el horario que mejor te quede. Sin esperas, sin llamadas.</p>
+  <p>Elegí el día y el horario que mejor te quede. Nosotros nos encargamos del resto.</p>
 </div>
 
 <div class="stepper-wrap" id="stepper-wrap">
   <div class="stepper">
     <div class="step active" id="step-dot-1">
       <div class="step-dot">1</div>
-      <div class="step-label">Servicio</div>
+      <div class="step-label">Fecha</div>
     </div>
     <div class="step" id="step-dot-2">
       <div class="step-dot">2</div>
-      <div class="step-label">Fecha</div>
+      <div class="step-label">Horario</div>
     </div>
     <div class="step" id="step-dot-3">
       <div class="step-dot">3</div>
-      <div class="step-label">Horario</div>
-    </div>
-    <div class="step" id="step-dot-4">
-      <div class="step-dot">4</div>
       <div class="step-label">Tus datos</div>
     </div>
   </div>
@@ -168,7 +153,7 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--red)}
 
 <div class="container">
   <div id="app-content">
-    <div class="loading"><i class="ti ti-loader"></i>Cargando servicios...</div>
+    <div class="loading"><i class="ti ti-loader"></i>Cargando...</div>
   </div>
 </div>
 
@@ -177,18 +162,13 @@ const SUPA_URL = 'https://ejhyvfjwudeponhgawiz.supabase.co';
 const SUPA_KEY = 'sb_publishable_X_fOJC-3BhJ2ymGFB_6asQ_9T73J3GM';
 const supa = supabase.createClient(SUPA_URL, SUPA_KEY);
 
-const HORA_INICIO = 8 * 60 + 30; // 8:30 en minutos
-const HORA_FIN    = 18 * 60;     // 18:00 en minutos
-const MAX_AUTOS   = 3;           // mecánicos simultáneos
-const PASO_SLOT   = 30;          // cada 30 min
+const HORA_INICIO = 8 * 60 + 30;  // 8:30
+const HORA_FIN    = 18 * 60;      // 18:00
+const MAX_AUTOS   = 1;            // 1 auto por turno
+const PASO_SLOT   = 60;           // turnos cada 1 hora
+const DUR_SLOT    = 60;           // duración fija 1 hora
 
-let state = {
-  paso: 1,
-  servicio: null,
-  fecha: null,
-  slot: null,
-  turnos_dia: []
-};
+let state = { paso: 1, fecha: null, slot: null, turnos_dia: [] };
 
 const meses = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 const dias_short = ['Do','Lu','Ma','Mi','Ju','Vi','Sa'];
@@ -199,78 +179,36 @@ function padZ(n){ return String(n).padStart(2,'0'); }
 function minToTime(m){ return `${padZ(Math.floor(m/60))}:${padZ(m%60)}`; }
 function timeToMin(t){ const [h,m]=t.slice(0,5).split(':').map(Number); return h*60+m; }
 function fmtFecha(d){ if(!d)return''; const[y,mo,dd]=d.split('-'); return `${dd}/${mo}/${y}`; }
-function isWeekday(dateStr){const d=new Date(dateStr+'T12:00:00');const w=d.getDay();return w>=1&&w<=5;}
-function fmt(n){return '$'+Number(n||0).toLocaleString('es-AR')}
+function isWeekday(dateStr){ const w=new Date(dateStr+'T12:00:00').getDay(); return w>=1&&w<=5; }
 
-// ── Actualizar stepper ──
 function updateStepper(paso){
-  for(let i=1;i<=4;i++){
+  for(let i=1;i<=3;i++){
     const el=document.getElementById(`step-dot-${i}`);
     el.className='step'+(i===paso?' active':i<paso?' done':'');
   }
 }
 
-// ── Paso 1: Elegir servicio ──
-async function renderPaso1(){
+// ── Paso 1: Elegir fecha ──
+function renderPaso1(){
   state.paso=1; updateStepper(1);
-  const c=document.getElementById('app-content');
-  c.innerHTML='<div class="loading"><i class="ti ti-loader"></i>Cargando servicios...</div>';
-  const {data:precios}=await supa.from('precios').select('*').order('descripcion');
-  if(!precios?.length){
-    c.innerHTML='<div class="empty"><i class="ti ti-tools"></i><p>No hay servicios disponibles por el momento.</p></div>';
-    return;
-  }
-  const servicios=precios.filter(p=>p.horas_trabajo>0);
-  c.innerHTML=`
-  <div class="panel">
-    <div class="panel-title"><i class="ti ti-tools"></i> ¿Qué servicio necesitás?</div>
-    <div class="panel-sub">Seleccioná el trabajo que necesitás realizar. La duración varía según el servicio.</div>
-    <div class="servicios-grid" id="servicios-lista">
-      ${servicios.map(s=>`
-      <div class="servicio-card" onclick="seleccionarServicio('${s.id}','${escHtml(s.descripcion)}',${s.horas_trabajo||1},${s.precio_contado||0})">
-        <div class="servicio-nombre">${s.descripcion}</div>
-        <div class="servicio-detalle">
-          <span class="servicio-badge"><i class="ti ti-clock" style="font-size:11px"></i> ${s.horas_trabajo}h</span>
-          <span class="servicio-badge">${fmt(s.precio_contado)}</span>
-        </div>
-      </div>`).join('')}
-    </div>
-    <div style="margin-top:16px;padding:12px;background:var(--gray);border-radius:8px;font-size:12px;color:var(--text2)">
-      <i class="ti ti-info-circle"></i> ¿No encontrás tu servicio? Llamanos al <strong>351-344-3965</strong> y te asesoramos.
-    </div>
-  </div>`;
-}
-
-function escHtml(s){return String(s).replace(/'/g,"&#39;").replace(/"/g,'&quot;');}
-
-function seleccionarServicio(id,nombre,horas,precio){
-  document.querySelectorAll('.servicio-card').forEach(c=>c.classList.remove('selected'));
-  event.currentTarget.classList.add('selected');
-  state.servicio={id,nombre,horas:Number(horas),precio:Number(precio)};
-  setTimeout(()=>renderPaso2(),300);
-}
-
-// ── Paso 2: Elegir fecha ──
-function renderPaso2(){
-  state.paso=2; updateStepper(2);
   document.getElementById('app-content').innerHTML=`
   <div class="panel">
     <div class="panel-title"><i class="ti ti-calendar"></i> ¿Qué día te viene bien?</div>
-    <div class="panel-sub">Servicio: <strong>${state.servicio.nombre}</strong> · <strong>${state.servicio.horas}h</strong></div>
+    <div class="panel-sub">Seleccioná una fecha disponible de lunes a viernes.</div>
     <div class="cal-nav">
       <button onclick="cambiarMes(-1)"><i class="ti ti-chevron-left"></i> Ant.</button>
       <span class="cal-mes" id="cal-titulo"></span>
       <button onclick="cambiarMes(1)">Sig. <i class="ti ti-chevron-right"></i></button>
     </div>
     <div class="cal-grid" id="cal-grid"></div>
-  </div>
-  <button class="btn btn-outline" onclick="renderPaso1()"><i class="ti ti-arrow-left"></i> Cambiar servicio</button>`;
+  </div>`;
   renderCalendario();
 }
 
 function cambiarMes(d){
   calMes.setMonth(calMes.getMonth()+d);
-  if(calMes<new Date()){calMes=new Date();calMes.setDate(1);}
+  const ahora=new Date(); ahora.setDate(1);
+  if(calMes<ahora) calMes=ahora;
   renderCalendario();
 }
 
@@ -304,29 +242,26 @@ function renderCalendario(){
 async function seleccionarFecha(fecha){
   state.fecha=fecha;
   renderCalendario();
-  setTimeout(()=>renderPaso3(),250);
+  setTimeout(()=>renderPaso2(),250);
 }
 
-// ── Paso 3: Elegir horario ──
-async function renderPaso3(){
-  state.paso=3; updateStepper(3);
+// ── Paso 2: Elegir horario ──
+async function renderPaso2(){
+  state.paso=2; updateStepper(2);
   const c=document.getElementById('app-content');
   c.innerHTML='<div class="loading"><i class="ti ti-loader"></i>Buscando horarios disponibles...</div>';
 
-  // Buscar turnos existentes ese día
   const {data:turnos}=await supa.from('turnos')
     .select('hora,duracion_estimada')
     .eq('fecha',state.fecha)
     .not('estado','eq','cancelado');
   state.turnos_dia=turnos||[];
 
-  // Generar slots
-  const durMin=Math.round(state.servicio.horas*60);
   const slots=[];
-  for(let m=HORA_INICIO;m+durMin<=HORA_FIN;m+=PASO_SLOT){
+  for(let m=HORA_INICIO;m+DUR_SLOT<=HORA_FIN;m+=PASO_SLOT){
     const t=minToTime(m);
-    const ocupados=contarSolapados(state.fecha,t,durMin,state.turnos_dia);
-    slots.push({time:t,ocupados,disponible:ocupados<MAX_AUTOS});
+    const ocupados=contarSolapados(state.fecha,t,DUR_SLOT,state.turnos_dia);
+    slots.push({time:t,disponible:ocupados<MAX_AUTOS});
   }
 
   const disponibles=slots.filter(s=>s.disponible).length;
@@ -334,21 +269,22 @@ async function renderPaso3(){
   c.innerHTML=`
   <div class="panel">
     <div class="panel-title"><i class="ti ti-clock"></i> Elegí el horario</div>
-    <div class="panel-sub">${fmtFecha(state.fecha)} · <strong>${state.servicio.nombre}</strong> (${state.servicio.horas}h)
-      ${disponibles>0?`<span class="badge-disponible" style="margin-left:8px">${disponibles} turnos libres</span>`:'<span class="badge-lleno" style="margin-left:8px">Sin turnos disponibles</span>'}
+    <div class="panel-sub">${fmtFecha(state.fecha)}
+      ${disponibles>0
+        ?`<span class="badge-disponible" style="margin-left:8px">${disponibles} turno${disponibles!==1?'s':''} libre${disponibles!==1?'s':''}</span>`
+        :'<span class="badge-lleno" style="margin-left:8px">Sin turnos disponibles</span>'}
     </div>
     ${disponibles>0?`
     <div class="slots-grid">
       ${slots.map(s=>`
       <div class="slot${s.disponible?'':' ocupado'}${state.slot===s.time?' selected':''}"
         ${s.disponible?`onclick="seleccionarSlot('${s.time}')"`:''}>
-        ${s.time}
-        <div class="slot-cap">${s.disponible?`${MAX_AUTOS-s.ocupados} libre${MAX_AUTOS-s.ocupados!==1?'s':''}`:' Lleno'}</div>
+        ${s.time}hs
       </div>`).join('')}
     </div>`
     :`<div class="empty"><i class="ti ti-calendar-off"></i><p>No hay horarios disponibles para este día.<br>Probá con otro día.</p></div>`}
   </div>
-  <button class="btn btn-outline" onclick="renderPaso2()"><i class="ti ti-arrow-left"></i> Cambiar fecha</button>`;
+  <button class="btn btn-outline" onclick="renderPaso1()"><i class="ti ti-arrow-left"></i> Cambiar fecha</button>`;
 }
 
 function contarSolapados(fecha,startTime,durMin,turnos){
@@ -365,12 +301,12 @@ function seleccionarSlot(time){
   state.slot=time;
   document.querySelectorAll('.slot').forEach(s=>s.classList.remove('selected'));
   event.currentTarget.classList.add('selected');
-  setTimeout(()=>renderPaso4(),250);
+  setTimeout(()=>renderPaso3(),250);
 }
 
-// ── Paso 4: Datos del cliente ──
-function renderPaso4(){
-  state.paso=4; updateStepper(4);
+// ── Paso 3: Datos del cliente ──
+function renderPaso3(){
+  state.paso=3; updateStepper(3);
   document.getElementById('app-content').innerHTML=`
   <div class="panel">
     <div class="panel-title"><i class="ti ti-user"></i> Tus datos</div>
@@ -383,7 +319,7 @@ function renderPaso4(){
     <input id="t-tel" type="tel" placeholder="Ej: 351-234-5678" autocomplete="tel">
 
     <label>Email</label>
-    <input id="t-email" type="email" placeholder="Opcional, para recibir confirmación" autocomplete="email">
+    <input id="t-email" type="email" placeholder="Opcional" autocomplete="email">
 
     <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--gray2)">
       <div class="panel-title" style="font-size:14px;margin-bottom:4px"><i class="ti ti-car"></i> Tu vehículo</div>
@@ -398,25 +334,25 @@ function renderPaso4(){
     <label>Kilometraje aproximado</label>
     <input id="t-km" type="number" placeholder="Opcional">
 
-    <label>Observaciones / comentarios</label>
-    <textarea id="t-obs" rows="3" placeholder="Contanos algo más sobre el problema o lo que necesitás..."></textarea>
+    <label>¿Por qué traés el auto? Contanos brevemente</label>
+    <textarea id="t-obs" rows="3" placeholder="Ej: Hace ruido al frenar, cambio de aceite, revisión general..."></textarea>
   </div>
 
   <div class="panel">
-    <div class="panel-title"><i class="ti ti-receipt"></i> Resumen</div>
+    <div class="panel-title"><i class="ti ti-calendar-check"></i> Resumen del turno</div>
     <div class="resumen">
-      <div class="resumen-row"><span>Servicio</span><span><strong>${state.servicio.nombre}</strong></span></div>
-      <div class="resumen-row"><span>Duración estimada</span><span>${state.servicio.horas} hora${state.servicio.horas!==1?'s':''}</span></div>
       <div class="resumen-row"><span>Fecha</span><span><strong>${fmtFecha(state.fecha)}</strong></span></div>
       <div class="resumen-row"><span>Horario</span><span><strong>${state.slot}hs</strong></span></div>
-      <div class="resumen-row"><span>Precio estimado</span><span style="color:var(--red)">${fmt(state.servicio.precio)}</span></div>
+      <div class="resumen-row"><span>Taller</span><span>Cuarta Marcha · San Isidro 1256</span></div>
     </div>
-    <p style="font-size:11px;color:var(--text2);margin-bottom:16px">* El precio final puede variar según el diagnóstico del mecánico.</p>
+    <p style="font-size:12px;color:var(--text2);margin-bottom:16px">
+      <i class="ti ti-info-circle"></i> El costo del trabajo te lo confirmamos cuando revisamos el vehículo.
+    </p>
     <button class="btn btn-red" id="btn-confirmar" onclick="confirmarTurno()">
       <i class="ti ti-check"></i> Confirmar turno
     </button>
   </div>
-  <button class="btn btn-outline" onclick="renderPaso3()"><i class="ti ti-arrow-left"></i> Cambiar horario</button>`;
+  <button class="btn btn-outline" onclick="renderPaso2()"><i class="ti ti-arrow-left"></i> Cambiar horario</button>`;
 }
 
 // ── Confirmar turno ──
@@ -429,18 +365,16 @@ async function confirmarTurno(){
   const btn=document.getElementById('btn-confirmar');
   btn.disabled=true; btn.innerHTML='<i class="ti ti-loader"></i> Confirmando...';
 
-  // Verificar disponibilidad antes de guardar
   const {data:turnosActuales}=await supa.from('turnos')
     .select('hora,duracion_estimada')
     .eq('fecha',state.fecha)
     .not('estado','eq','cancelado');
 
-  const durMin=Math.round(state.servicio.horas*60);
-  const ocupados=contarSolapados(state.fecha,state.slot,durMin,turnosActuales||[]);
+  const ocupados=contarSolapados(state.fecha,state.slot,DUR_SLOT,turnosActuales||[]);
   if(ocupados>=MAX_AUTOS){
     btn.disabled=false; btn.innerHTML='<i class="ti ti-check"></i> Confirmar turno';
     alert('Este horario se acaba de ocupar. Por favor elegí otro horario.');
-    await renderPaso3(); return;
+    await renderPaso2(); return;
   }
 
   const patente=document.getElementById('t-patente').value.trim().toUpperCase();
@@ -454,21 +388,21 @@ async function confirmarTurno(){
     vehiculo_modelo: auto,
     fecha: state.fecha,
     hora: state.slot,
-    tipo_trabajo: state.servicio.nombre,
-    duracion_estimada: durMin,
+    tipo_trabajo: 'A confirmar',
+    duracion_estimada: DUR_SLOT,
     estado: 'pendiente',
     telefono_contacto: tel,
     observaciones: [
       obs,
       email?`Email: ${email}`:'',
       km?`KM: ${km}`:'',
-      `Precio estimado: ${fmt(state.servicio.precio)}`
     ].filter(Boolean).join('\n')
   });
 
   if(error){
     btn.disabled=false; btn.innerHTML='<i class="ti ti-check"></i> Confirmar turno';
     alert('Hubo un error al guardar el turno. Intentá de nuevo o llamanos al 351-344-3965.');
+    console.error(error);
     return;
   }
   renderExito(nombre, auto, patente);
@@ -482,12 +416,8 @@ function renderExito(nombre, auto, patente){
   <div class="success-wrap">
     <div class="success-icon"><i class="ti ti-check"></i></div>
     <div class="success-title">¡Turno confirmado!</div>
-    <div class="success-sub">Te esperamos. Si necesitás cancelar o reprogramar llamanos al <strong>351-344-3965</strong>.</div>
+    <div class="success-sub">Te esperamos en el taller. Si necesitás cancelar o reprogramar llamanos al <strong>351-344-3965</strong>.</div>
     <div class="success-card">
-      <div class="success-card-row">
-        <i class="ti ti-tools"></i>
-        <div><div class="lbl">Servicio</div><div class="val">${state.servicio.nombre}</div></div>
-      </div>
       <div class="success-card-row">
         <i class="ti ti-calendar"></i>
         <div><div class="lbl">Fecha y hora</div><div class="val">${fmtFecha(state.fecha)} a las ${state.slot}hs</div></div>
