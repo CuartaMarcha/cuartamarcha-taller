@@ -1396,46 +1396,27 @@ async function verPresupuesto(id){
     </div>`);
 }
 
-async function enviarPresupuestoWP(id){
+async function _buildPresupuestoPDF(id){
   const [{data:p},{data:items}] = await Promise.all([
     supa.from('presupuestos').select('*').eq('id',id).single(),
     supa.from('presupuesto_items').select('*').eq('presupuesto_id',id)
   ]);
-  let tel = '';
-  if(p.cliente_id){
-    const {data:cl} = await supa.from('clientes').select('telefono').eq('id',p.cliente_id).single();
-    tel = (cl?.telefono||'').replace(/\D/g,'');
-  }
-  const lineas = (items||[]).map(it=>`  • ${it.descripcion} x${it.cantidad} — ${fmt(it.subtotal)}`).join('\n');
-  const msg = `*Presupuesto #${p.numero} — Cuarta Marcha Taller Mecánico*\n\nCliente: ${p.cliente_nombre||'Consumidor Final'}\nFecha: ${fmtFecha(p.fecha)}\n\n*Detalle:*\n${lineas}\n\n*TOTAL: ${fmt(p.total)}*\n\n_Validez: 15 días. Cualquier consulta llamanos al 351-344-3965._`;
-  const url = `https://wa.me/${tel?'54'+tel:''}?text=${encodeURIComponent(msg)}`;
-  window.open(url,'_blank');
-}
-
-async function generarPresupuestoPDF(id){
-  try{
-  const [{data:p},{data:items}] = await Promise.all([
-    supa.from('presupuestos').select('*').eq('id',id).single(),
-    supa.from('presupuesto_items').select('*').eq('presupuesto_id',id)
-  ]);
-  if(!p){alert('No se encontró el presupuesto');return;}
+  if(!p) throw new Error('No se encontró el presupuesto');
   let cliente = null;
   if(p.cliente_id){
     const {data:cl} = await supa.from('clientes').select('*').eq('id',p.cliente_id).single();
     cliente = cl;
   }
   const jsPDF = window.jspdf?.jsPDF || window.jsPDF;
-  if(!jsPDF){alert('Error: librería PDF no cargada. Recargá la página.');return;}
+  if(!jsPDF) throw new Error('Librería PDF no cargada. Recargá la página.');
   const doc = new jsPDF();
   const w = doc.internal.pageSize.getWidth();
   const h = doc.internal.pageSize.getHeight();
   const mid = w/2;
 
-  // ── Borde exterior ──
   doc.setDrawColor(224,224,224); doc.setLineWidth(0.3);
   doc.rect(10,10,w-20,h-20,'S');
 
-  // ── Header: logo + título ──
   let logoW = 0;
   if(LOGO_URL){
     try{
@@ -1447,11 +1428,9 @@ async function generarPresupuestoPDF(id){
 
   doc.setTextColor(200,23,26); doc.setFontSize(22); doc.setFont('helvetica','bold');
   doc.text('PRESUPUESTO', w-14, 24, {align:'right'});
-  doc.setFontSize(10); doc.setFont('helvetica','normal');
-  doc.setTextColor(100,100,100);
+  doc.setFontSize(10); doc.setFont('helvetica','normal'); doc.setTextColor(100,100,100);
   doc.text(`N° ${p.numero}`, w-14, 32, {align:'right'});
   doc.text(`Fecha: ${fmtFecha(p.fecha)}`, w-14, 39, {align:'right'});
-
   doc.setFontSize(11); doc.setFont('helvetica','bold'); doc.setTextColor(26,26,26);
   doc.text('CUARTA MARCHA', 14+logoW, 22);
   doc.setFontSize(8); doc.setFont('helvetica','normal'); doc.setTextColor(100,100,100);
@@ -1459,17 +1438,14 @@ async function generarPresupuestoPDF(id){
   doc.text('San Isidro 1256, Córdoba Capital', 14+logoW, 34);
   doc.text('Tel: 351-344-3965', 14+logoW, 39);
 
-  // ── Línea roja ──
   doc.setDrawColor(200,23,26); doc.setLineWidth(1);
   doc.line(10,46,w-10,46);
 
-  // ── Caja dos columnas ──
   const boxY=49, boxH=32;
   doc.setFillColor(244,244,244); doc.rect(10,boxY,w-20,boxH,'F');
   doc.setDrawColor(224,224,224); doc.setLineWidth(0.3);
   doc.rect(10,boxY,w-20,boxH,'S');
   doc.line(mid,boxY,mid,boxY+boxH);
-
   doc.setFontSize(8); doc.setFont('helvetica','bold'); doc.setTextColor(200,23,26);
   doc.text('TALLER', 14,boxY+7);
   doc.setFontSize(9); doc.setFont('helvetica','bold'); doc.setTextColor(26,26,26);
@@ -1478,7 +1454,6 @@ async function generarPresupuestoPDF(id){
   doc.text('San Isidro 1256, Córdoba Capital', 14,boxY+20);
   doc.text('Tel: 351-344-3965', 14,boxY+25);
   doc.text('cuartamarchataller@gmail.com', 14,boxY+30);
-
   doc.setFontSize(8); doc.setFont('helvetica','bold'); doc.setTextColor(200,23,26);
   doc.text('CLIENTE', mid+4,boxY+7);
   doc.setFontSize(9); doc.setFont('helvetica','bold'); doc.setTextColor(26,26,26);
@@ -1488,7 +1463,6 @@ async function generarPresupuestoPDF(id){
   if(cliente?.email) doc.text(`Email: ${cliente.email}`, mid+4,boxY+25);
   if(cliente?.dni) doc.text(`DNI: ${cliente.dni}`, mid+4,boxY+30);
 
-  // ── Barra negra fecha/validez ──
   const fY=boxY+boxH+2;
   doc.setFillColor(26,26,26); doc.rect(10,fY,w-20,8,'F');
   doc.setTextColor(255,255,255); doc.setFontSize(8); doc.setFont('helvetica','normal');
@@ -1496,7 +1470,6 @@ async function generarPresupuestoPDF(id){
   doc.text('Validez: 15 días', w-14,fY+5.5,{align:'right'});
   doc.text(p.tipo_precio==='tarjeta'?'Precio: Tarjeta':'Precio: Contado', mid,fY+5.5,{align:'center'});
 
-  // ── Tabla ítems ──
   let y=fY+12;
   doc.setFillColor(26,26,26); doc.rect(10,y,w-20,8,'F');
   doc.setTextColor(255,255,255); doc.setFontSize(9); doc.setFont('helvetica','bold');
@@ -1505,7 +1478,6 @@ async function generarPresupuestoPDF(id){
   doc.text('P. UNIT.', 153,y+5.5,{align:'center'});
   doc.text('TOTAL', w-14,y+5.5,{align:'right'});
   y+=10;
-
   doc.setFont('helvetica','normal'); doc.setFontSize(9);
   (items||[]).forEach((it,i)=>{
     if(i%2===0){ doc.setFillColor(248,248,248); doc.rect(10,y-4,w-20,9,'F'); }
@@ -1519,7 +1491,6 @@ async function generarPresupuestoPDF(id){
     y+=9;
   });
 
-  // ── Totales ──
   y+=4;
   const totW=85, totX=w-10-totW;
   doc.setDrawColor(224,224,224); doc.setLineWidth(0.3);
@@ -1528,23 +1499,16 @@ async function generarPresupuestoPDF(id){
   doc.text('SUB-TOTAL', totX+4,y+5.5);
   doc.text(fmt(p.total), w-14,y+5.5,{align:'right'});
   y+=8;
-
   doc.setFillColor(200,23,26); doc.rect(totX,y,totW,10,'F');
   doc.setTextColor(255,255,255); doc.setFontSize(11); doc.setFont('helvetica','bold');
   doc.text('TOTAL', totX+4,y+7);
   doc.text(fmt(p.total), w-14,y+7,{align:'right'});
   y+=14;
-
   doc.setFontSize(8); doc.setFont('helvetica','italic'); doc.setTextColor(100,100,100);
   doc.text(`Son: ${numeroALetras(Math.floor(Number(p.total)))} pesos`, 14,y);
   y+=10;
+  if(p.observaciones){ doc.setFont('helvetica','normal'); doc.text(`Obs: ${p.observaciones}`, 14,y); y+=8; }
 
-  if(p.observaciones){
-    doc.setFont('helvetica','normal');
-    doc.text(`Obs: ${p.observaciones}`, 14,y); y+=8;
-  }
-
-  // ── Firmas ──
   const firmY=Math.max(y+10,230);
   doc.setDrawColor(224,224,224); doc.setLineWidth(0.3);
   doc.rect(10,firmY,w-20,30,'S');
@@ -1556,13 +1520,44 @@ async function generarPresupuestoPDF(id){
   doc.line(30,firmY+22,mid-10,firmY+22);
   doc.line(mid+10,firmY+22,w-30,firmY+22);
 
-  // ── Footer ──
   doc.setFillColor(26,26,26); doc.rect(10,h-16,w-20,7,'F');
   doc.setTextColor(255,255,255); doc.setFontSize(7); doc.setFont('helvetica','normal');
   doc.text('Cuarta Marcha Taller Mecánico  |  San Isidro 1256, Córdoba Capital  |  351-344-3965', mid,h-11.5,{align:'center'});
 
-  doc.save(`Presupuesto-N${p.numero}-${(p.cliente_nombre||'CF').replace(/ /g,'-')}-${p.fecha}.pdf`);
+  return {doc, p};
+}
+
+async function generarPresupuestoPDF(id){
+  try{
+    const {doc, p} = await _buildPresupuestoPDF(id);
+    doc.save(`Presupuesto-N${p.numero}-${(p.cliente_nombre||'CF').replace(/ /g,'-')}-${p.fecha}.pdf`);
   }catch(e){alert('Error al generar PDF: '+e.message);console.error(e);}
+}
+
+async function enviarPresupuestoWP(id){
+  try{
+    const btn = event?.currentTarget;
+    if(btn){btn.disabled=true;btn.innerHTML='<i class="ti ti-loader"></i> Subiendo...';}
+    const {doc, p} = await _buildPresupuestoPDF(id);
+    const blob = doc.output('blob');
+    const path = `presupuestos/P${p.numero}-${Date.now()}.pdf`;
+    const {error:upErr} = await supa.storage.from('orden-fotos').upload(path, blob, {contentType:'application/pdf', upsert:true});
+    if(upErr) throw new Error('No se pudo subir el PDF: '+upErr.message);
+    const {data:urlData} = supa.storage.from('orden-fotos').getPublicUrl(path);
+    let tel = '';
+    if(p.cliente_id){
+      const {data:cl} = await supa.from('clientes').select('telefono').eq('id',p.cliente_id).single();
+      tel = (cl?.telefono||'').replace(/\D/g,'');
+    }
+    const msg = `Hola ${p.cliente_nombre||''}! Te enviamos el presupuesto N°${p.numero} de *Cuarta Marcha Taller Mecánico*.\n\nTotal: *${fmt(p.total)}*\nValidez: 15 días\n\n📄 Ver presupuesto: ${urlData.publicUrl}\n\nCualquier consulta llamanos al 351-344-3965.`;
+    const url = `https://wa.me/${tel?'54'+tel:''}?text=${encodeURIComponent(msg)}`;
+    window.open(url,'_blank');
+    if(btn){btn.disabled=false;btn.innerHTML='<i class="ti ti-brand-whatsapp"></i> WhatsApp';}
+  }catch(e){
+    alert('Error: '+e.message);console.error(e);
+    const btn = document.querySelector('[onclick*="enviarPresupuestoWP"]');
+    if(btn){btn.disabled=false;btn.innerHTML='<i class="ti ti-brand-whatsapp"></i> WhatsApp';}
+  }
 }
 
 async function aprobarPresupuesto(id){
