@@ -217,6 +217,8 @@ const SUPA_KEY = 'sb_publishable_X_fOJC-3BhJ2ymGFB_6asQ_9T73J3GM';
 const supa = supabase.createClient(SUPA_URL, SUPA_KEY);
 // Poné la URL de tu logo acá (PNG o SVG). Si está vacío, no se muestra.
 const LOGO_URL = 'logo.png';
+// Link de Google Reviews de tu taller (reemplazalo con tu link real)
+const GOOGLE_REVIEW_URL = 'https://g.page/r/REEMPLAZAR_CON_TU_LINK/review';
 
 async function entrar(){
   const email = document.getElementById('login-email').value.trim();
@@ -342,13 +344,19 @@ async function render(){
 }
 
 async function renderDashboard(){
-  const [clientes, ordenes, turnos, caja, vehiculos, ultimasOrdenes] = await Promise.all([
+  const hace4 = new Date(); hace4.setDate(hace4.getDate()-4);
+  const hace8 = new Date(); hace8.setDate(hace8.getDate()-8);
+  const [clientes, ordenes, turnos, caja, vehiculos, ultimasOrdenes, seguimientos] = await Promise.all([
     supa.from('clientes').select('id'),
     supa.from('ordenes').select('*'),
     supa.from('turnos').select('*').eq('fecha', hoy()),
     supa.from('caja').select('*'),
     supa.from('vehiculos').select('id,patente,marca,modelo,cliente_id,clientes(nombre,apellido,telefono)').order('patente'),
-    supa.from('ordenes').select('vehiculo_id,fecha_ingreso').order('fecha_ingreso',{ascending:false})
+    supa.from('ordenes').select('vehiculo_id,fecha_ingreso').order('fecha_ingreso',{ascending:false}),
+    supa.from('ordenes').select('id,numero,cliente_nombre,vehiculo_patente,vehiculo_modelo,fecha_ingreso,estado,cliente_id,clientes(telefono)')
+      .gte('fecha_ingreso', hace8.toISOString().slice(0,10))
+      .lte('fecha_ingreso', hace4.toISOString().slice(0,10))
+      .neq('estado','cancelado')
   ]);
   const mes = caja.data?.filter(c=>c.fecha?.slice(0,7)===mesActual());
   const ing = mes?.filter(c=>c.tipo==='ingreso').reduce((a,b)=>a+Number(b.monto),0)||0;
@@ -356,7 +364,9 @@ async function renderDashboard(){
   const abiertas = ordenes.data?.filter(o=>o.estado!=='entregado'&&o.estado!=='cancelado').length||0;
   const turnosHoy = turnos.data||[];
   const ordenesRecientes = (ordenes.data||[]).slice(-5).reverse();
-  // Recordatorios de service (vehículos sin visita en 6+ meses)
+  // Seguimientos post-servicio
+  const seguimientosList = seguimientos.data||[];
+
   const haceSeismeses = new Date(); haceSeismeses.setMonth(haceSeismeses.getMonth()-6);
   const limiteService = haceSeismeses.toISOString().slice(0,10);
   const ultimaPorVeh = {};
@@ -396,6 +406,28 @@ async function renderDashboard(){
         '<div class="empty" style="padding:24px"><i class="ti ti-file-off"></i><p>Sin órdenes</p></div>'}
     </div>
   </div>
+  ${seguimientosList.length?`
+  <div class="card" style="margin-top:16px;border-left:3px solid #25D366">
+    <div class="seccion-title" style="margin-bottom:12px;display:flex;justify-content:space-between;align-items:center">
+      <span style="color:#1a7a3a"><i class="ti ti-message-circle-check"></i> Seguimientos post-servicio <span style="font-size:11px;font-weight:400;color:var(--text2)">(últimos 4–8 días)</span></span>
+      <span style="font-size:11px;color:var(--text2)">${seguimientosList.length} cliente${seguimientosList.length!==1?'s':''}</span>
+    </div>
+    ${seguimientosList.map(o=>{
+      const tel = (o.clientes?.telefono||'').replace(/\D/g,'');
+      const veh = [o.vehiculo_patente, o.vehiculo_modelo].filter(Boolean).join(' ');
+      const msg = `Hola ${(o.cliente_nombre||'').split(' ')[0]}! 👋 Te escribimos desde *Cuarta Marcha Taller Mecánico*.\n\n¿Cómo quedó tu ${veh||'vehículo'} después del trabajo que realizamos? Esperamos que todo esté perfecto 🔧\n\nSi estás conforme, te pedimos que nos dejes una reseña en Google, nos ayuda muchísimo 🙏\n👉 ${GOOGLE_REVIEW_URL}\n\nCualquier consulta, estamos a tu disposición. ¡Gracias!`;
+      const waUrl = tel ? `https://wa.me/54${tel}?text=${encodeURIComponent(msg)}` : '';
+      return `<div style="display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--border);gap:8px;flex-wrap:wrap">
+        <div>
+          <div style="font-weight:600">${o.cliente_nombre||'-'} <span style="font-weight:400;font-size:12px;color:var(--text2)">${veh}</span></div>
+          <div style="font-size:12px;color:var(--text2)">Orden #${o.numero} · ${fmtFecha(o.fecha_ingreso)} · ${badgeEstado(o.estado)}</div>
+        </div>
+        <div style="display:flex;gap:6px;flex-shrink:0">
+          ${waUrl?`<a href="${waUrl}" target="_blank" class="btn btn-sm" style="background:#25D366;color:#fff;border:none"><i class="ti ti-brand-whatsapp"></i> Enviar</a>`:'<span style="font-size:12px;color:var(--text2)">Sin teléfono</span>'}
+        </div>
+      </div>`;
+    }).join('')}
+  </div>`:''}
   ${recordatorios.length?`
   <div class="card" style="margin-top:16px">
     <div class="seccion-title" style="margin-bottom:12px;color:var(--amber)"><i class="ti ti-clock-alert"></i> Recordatorios de service <span style="font-size:11px;font-weight:400;color:var(--text2)">— más de 6 meses sin visita</span></div>
@@ -842,9 +874,12 @@ async function modalOrden(id){
         <div><label style="margin-top:0;font-size:11px">Cantidad</label><input type="number" id="f-rep-cant" value="1" min="1"></div>
         <div><label style="margin-top:0;font-size:11px">Precio unit. $</label><input type="number" id="f-rep-precio" placeholder="0" min="0"></div>
         <div><label style="margin-top:0;font-size:11px">Estado</label><select id="f-rep-estado">
-          <option value="pendiente">Pendiente</option>
-          <option value="pedido">Pedido</option>
+          <option value="esperando_ok">Esperando OK cliente</option>
+          <option value="cliente_trae">Lo trae el cliente</option>
+          <option value="pedido">Pedido / Encargado</option>
           <option value="disponible">Disponible</option>
+          <option value="pendiente_pago">Pendiente de pago</option>
+          <option value="pagado">Pagado</option>
         </select></div>
       </div>
       <button class="btn btn-primary" style="width:100%;padding:10px" onclick="agregarRepuestoOrden()"><i class="ti ti-plus"></i> Agregar repuesto</button>
@@ -1010,7 +1045,14 @@ function renderRepuestosOrden(){
   const lista = document.getElementById('lista-repuestos-orden');
   if(!lista)return;
   const reps = window._ordenRepuestos||[];
-  const badgeRep = e => e==='disponible'?'<span class="badge badge-green">Disponible</span>':e==='pedido'?'<span class="badge badge-blue">Pedido</span>':'<span class="badge badge-amber">Pendiente</span>';
+  const badgeRep = e => ({
+    esperando_ok:'<span class="badge badge-amber">Esperando OK</span>',
+    cliente_trae:'<span class="badge badge-gray">Lo trae cliente</span>',
+    pedido:'<span class="badge badge-blue">Pedido</span>',
+    disponible:'<span class="badge badge-green">Disponible</span>',
+    pendiente_pago:'<span class="badge badge-red">Pend. pago</span>',
+    pagado:'<span class="badge badge-green">Pagado</span>',
+  })[e]||'<span class="badge badge-gray">-</span>';
   lista.innerHTML = reps.length
     ? `<div style="display:flex;flex-direction:column;gap:6px;margin-bottom:10px">${reps.map((r,i)=>`
         <div style="display:flex;align-items:center;gap:10px;background:#fff;border:1px solid var(--border);border-radius:8px;padding:10px 12px">
