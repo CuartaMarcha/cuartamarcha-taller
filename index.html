@@ -1256,7 +1256,73 @@ async function guardarOrden(id){
       });
     }
   }
-  cerrarModal(); await renderOrdenes();
+  const estadoFinal = data.estado;
+  cerrarModal();
+  await renderOrdenes();
+  // Si se entrega la orden, preguntar si abona
+  if(estadoFinal==='entregado' && cliId && totalGeneral>0){
+    const {data:ord} = await supa.from('ordenes').select('numero').eq('id',ordenId).single();
+    const cliNombre = `${cls?.nombre||''} ${cls?.apellido||''}`.trim();
+    abrirModal(`
+      <div class="modal-title"><span><i class="ti ti-circle-check" style="color:#1a7a3a"></i> Orden entregada</span><button class="btn btn-sm" onclick="cerrarModal()"><i class="ti ti-x"></i></button></div>
+      <p style="margin-bottom:6px">Orden <strong>#${ord?.numero||''}</strong> · Cliente: <strong>${cliNombre}</strong></p>
+      <p style="color:var(--text2);font-size:13px;margin-bottom:20px">Total de la orden: <strong style="font-size:16px;color:var(--text)">${fmt(totalGeneral)}</strong></p>
+      <p style="font-weight:600;margin-bottom:12px">¿El cliente abona ahora?</p>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <button class="btn btn-primary" style="justify-content:flex-start;padding:14px 16px" onclick="registrarPagoOrden('${ordenId}','${cliId}','${cliNombre}',${totalGeneral},${totalGeneral},'completo')">
+          <i class="ti ti-circle-check" style="font-size:20px"></i>
+          <div style="text-align:left"><div style="font-weight:600">Sí, abona completo</div><div style="font-size:12px;opacity:.8">${fmt(totalGeneral)} — cancela la cuenta</div></div>
+        </button>
+        <button class="btn" style="justify-content:flex-start;padding:14px 16px;border:1.5px solid var(--border)" onclick="modalPagoParcialOrden('${ordenId}','${cliId}','${cliNombre}',${totalGeneral})">
+          <i class="ti ti-cash" style="font-size:20px"></i>
+          <div style="text-align:left"><div style="font-weight:600">Abona parcialmente</div><div style="font-size:12px;color:var(--text2)">Registrar un monto menor</div></div>
+        </button>
+        <button class="btn" style="justify-content:flex-start;padding:14px 16px;border:1.5px solid var(--border)" onclick="cerrarModal()">
+          <i class="ti ti-clock" style="font-size:20px"></i>
+          <div style="text-align:left"><div style="font-weight:600">No abona ahora</div><div style="font-size:12px;color:var(--text2)">Queda pendiente en cuenta corriente</div></div>
+        </button>
+      </div>`);
+  }
+}
+
+async function registrarPagoOrden(ordenId, cliId, cliNombre, totalOrden, montoPago, tipo){
+  const {data:ord} = await supa.from('ordenes').select('numero').eq('id',ordenId).single();
+  const num = ord?.numero||'';
+  // Crédito en cuenta corriente
+  await supa.from('cuenta_corriente').insert({
+    cliente_id:cliId,
+    tipo:'credito',
+    monto:montoPago,
+    concepto:`[ORD:${ordenId}] Pago orden #${num}${tipo==='completo'?' — pago total':' — pago parcial'}`,
+    fecha:hoy(),
+    saldo:0
+  });
+  // Ingreso en caja
+  await supa.from('caja').insert({
+    tipo:'ingreso',
+    monto:montoPago,
+    concepto:`Cobro orden #${num} — ${cliNombre}`,
+    categoria:'Servicio',
+    fecha:hoy()
+  });
+  cerrarModal();
+  alert(`✓ Pago de ${fmt(montoPago)} registrado en cuenta corriente y caja.`);
+}
+
+function modalPagoParcialOrden(ordenId, cliId, cliNombre, totalOrden){
+  abrirModal(`
+    <div class="modal-title"><span><i class="ti ti-cash"></i> Pago parcial</span><button class="btn btn-sm" onclick="cerrarModal()"><i class="ti ti-x"></i></button></div>
+    <p style="color:var(--text2);font-size:13px;margin-bottom:16px">Total de la orden: <strong>${fmt(totalOrden)}</strong></p>
+    <label>Monto que abona *</label>
+    <input type="number" id="monto-parcial" placeholder="0" style="font-size:18px;text-align:center">
+    <div style="display:flex;gap:8px;margin-top:20px">
+      <button class="btn" style="flex:1" onclick="cerrarModal()">Cancelar</button>
+      <button class="btn btn-primary" style="flex:1" onclick="
+        const m=Number(document.getElementById('monto-parcial').value);
+        if(!m||m<=0){alert('Ingresá un monto');return;}
+        registrarPagoOrden('${ordenId}','${cliId}','${cliNombre}',${totalOrden},m,'parcial')
+      "><i class="ti ti-check"></i> Registrar pago</button>
+    </div>`);
 }
 
 async function eliminarOrden(id){
@@ -2126,10 +2192,24 @@ async function enviarPresupuestoWP(id){
 async function aprobarPresupuesto(id){
   await supa.from('presupuestos').update({estado:'aprobado'}).eq('id',id);
   const {data:p} = await supa.from('presupuestos').select('*').eq('id',id).single();
+  // Generar cargo en cuenta corriente si tiene cliente
+  if(p?.cliente_id && p?.total>0){
+    const marker = `[PRES:${id}]`;
+    await supa.from('cuenta_corriente').delete().ilike('concepto',`%${marker}%`).eq('cliente_id',p.cliente_id);
+    await supa.from('cuenta_corriente').insert({
+      cliente_id:p.cliente_id,
+      tipo:'debito',
+      monto:p.total,
+      concepto:`${marker} Presupuesto N°${p.numero} aprobado`,
+      fecha:hoy(),
+      saldo:0
+    });
+  }
   cerrarModal();
   // Preguntar si crear orden y/o turno
   abrirModal(`
     <div class="modal-title"><span><i class="ti ti-check" style="color:var(--primary)"></i> Presupuesto aprobado</span><button class="btn btn-sm" onclick="cerrarModal()"><i class="ti ti-x"></i></button></div>
+    <p style="color:var(--text2);font-size:13px;margin-bottom:8px">Se generó un cargo de <strong>${fmt(p?.total||0)}</strong> en la cuenta corriente de ${p?.cliente_nombre||'el cliente'}.</p>
     <p style="color:var(--text2);font-size:13px;margin-bottom:20px">¿Qué querés hacer a continuación?</p>
     <div style="display:flex;flex-direction:column;gap:10px">
       <button class="btn btn-primary" style="justify-content:flex-start;padding:14px 16px" onclick="crearOrdenDesdePresupuesto('${id}',false)">
