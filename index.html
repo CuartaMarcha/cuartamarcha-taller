@@ -684,7 +684,7 @@ async function guardarNuevoClienteOrden(){
   const apellido = document.getElementById('nc-apellido').value.trim();
   const tel = document.getElementById('nc-tel').value.trim();
   if(!nombre||!tel){alert('Nombre y teléfono son obligatorios');return;}
-  const {data:nuevo, error} = await supa.from('clientes').insert({nombre, apellido, telefono:tel}).select().single();
+  const {data:nuevo, error} = await supa.from('clientes').insert({nombre, apellido, telefono:tel, dni:''}).select().single();
   if(error){alert('Error al guardar cliente: '+error.message);return;}
   // Agregar al selector y seleccionarlo
   const sel = document.getElementById('f-cli');
