@@ -1168,13 +1168,24 @@ async function renderTurnos(){
     <button class="btn btn-primary" onclick="modalTurno()"><i class="ti ti-plus"></i> Nuevo turno</button>
   </div>
   <div class="card" style="padding:0">
-  ${proximos.length?`<table><thead><tr><th>Fecha</th><th>Hora</th><th>Cliente</th><th>Vehículo</th><th>Trabajo</th><th>Mecánico</th><th>Duración</th><th>Estado</th><th></th></tr></thead><tbody>
-  ${proximos.map(t=>`<tr><td><strong>${fmtFecha(t.fecha)}</strong></td><td>${t.hora?.slice(0,5)}</td><td>${t.cliente_nombre||'-'}</td><td style="font-size:12px">${t.vehiculo_patente?`<strong>${t.vehiculo_patente}</strong> ${t.vehiculo_modelo||''}`:'-'}</td><td>${t.tipo_trabajo}</td><td>${t.mecanico||'-'}</td><td>${t.duracion_estimada} min</td><td>${badgeEstado(t.estado)}</td>
-    <td style="display:flex;gap:4px">
-      ${(t.estado==='pendiente'||t.estado==='confirmado')?`<button class="btn btn-sm btn-primary" onclick="recibirClienteTurno('${t.id}')" title="Recibir cliente"><i class="ti ti-user-check"></i> Recibir</button>`:''}
-      <button class="btn btn-sm" onclick="modalTurno('${t.id}')"><i class="ti ti-edit"></i></button>
-      <button class="btn btn-sm btn-danger" onclick="eliminarTurno('${t.id}')"><i class="ti ti-trash"></i></button>
-    </td></tr>`).join('')}</tbody></table>`:'<div class="empty"><i class="ti ti-calendar-off"></i><p>No hay turnos próximos</p></div>'}
+  <div class="table-wrap">
+  ${proximos.length?`<table><thead><tr><th>Fecha / Hora</th><th>Cliente</th><th>Vehículo</th><th>Trabajo</th><th>Mecánico</th><th>Estado</th><th></th></tr></thead><tbody>
+  ${proximos.map(t=>`<tr>
+    <td><strong>${fmtFecha(t.fecha)}</strong><br><span style="font-size:12px;color:var(--text2)">${t.hora?.slice(0,5)}hs</span></td>
+    <td><div style="font-weight:500">${t.cliente_nombre||'-'}</div><div style="font-size:11px;color:var(--text2)">${t.telefono_contacto||''}</div></td>
+    <td style="font-size:12px">${t.vehiculo_patente?`<strong>${t.vehiculo_patente}</strong><br>${t.vehiculo_modelo||''}`:t.vehiculo_modelo||'-'}</td>
+    <td style="max-width:140px;white-space:normal">${t.tipo_trabajo}</td>
+    <td>${t.mecanico||'-'}</td>
+    <td>${badgeEstado(t.estado)}</td>
+    <td>
+      <div style="display:flex;gap:4px;flex-wrap:nowrap">
+        ${(t.estado==='pendiente'||t.estado==='confirmado')?`<button class="btn btn-sm btn-primary" onclick="recibirClienteTurno('${t.id}')"><i class="ti ti-user-check"></i> Recibir</button>`:''}
+        <button class="btn btn-sm" onclick="modalTurno('${t.id}')"><i class="ti ti-edit"></i></button>
+        <button class="btn btn-sm btn-danger" onclick="eliminarTurno('${t.id}')"><i class="ti ti-trash"></i></button>
+      </div>
+    </td>
+  </tr>`).join('')}</tbody></table>`:'<div class="empty"><i class="ti ti-calendar-off"></i><p>No hay turnos próximos</p></div>'}
+  </div>
   </div>`;
   window._turnos = data||[];
 }
