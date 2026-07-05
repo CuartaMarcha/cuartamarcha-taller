@@ -684,26 +684,32 @@ async function modalOrden(id){
 
     <!-- Repuestos -->
     <div class="sep"></div>
-    <div class="seccion-title" style="margin-bottom:8px"><i class="ti ti-package"></i> Repuestos</div>
-    <div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap;align-items:flex-end">
-      <div style="flex:2;min-width:120px"><label style="margin-top:0">Repuesto</label><input id="f-rep-nombre" placeholder="Nombre del repuesto"></div>
-      <div style="width:68px"><label style="margin-top:0">Cant.</label><input type="number" id="f-rep-cant" value="1" min="1"></div>
-      <div style="width:110px"><label style="margin-top:0">Precio unit.</label><input type="number" id="f-rep-precio" placeholder="0" min="0"></div>
-      <div style="width:120px"><label style="margin-top:0">Estado</label><select id="f-rep-estado">
-        <option value="pendiente">Pendiente</option>
-        <option value="pedido">Pedido</option>
-        <option value="disponible">Disponible</option>
-      </select></div>
-      <button class="btn btn-primary btn-sm" onclick="agregarRepuestoOrden()"><i class="ti ti-plus"></i> Agregar</button>
+    <div class="seccion-title" style="margin-bottom:12px"><i class="ti ti-package"></i> Repuestos</div>
+    <div style="background:#f8f8f8;border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:10px">
+      <div style="margin-bottom:8px"><input id="f-rep-nombre" placeholder="Nombre del repuesto" style="font-size:14px"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:10px">
+        <div><label style="margin-top:0;font-size:11px">Cantidad</label><input type="number" id="f-rep-cant" value="1" min="1"></div>
+        <div><label style="margin-top:0;font-size:11px">Precio unit. $</label><input type="number" id="f-rep-precio" placeholder="0" min="0"></div>
+        <div><label style="margin-top:0;font-size:11px">Estado</label><select id="f-rep-estado">
+          <option value="pendiente">Pendiente</option>
+          <option value="pedido">Pedido</option>
+          <option value="disponible">Disponible</option>
+        </select></div>
+      </div>
+      <button class="btn btn-primary" style="width:100%;padding:10px" onclick="agregarRepuestoOrden()"><i class="ti ti-plus"></i> Agregar repuesto</button>
     </div>
     <div id="lista-repuestos-orden"></div>
-    <div style="text-align:right;font-size:13px;font-weight:600;margin-top:6px;color:var(--text2)">
-      Total repuestos: <span id="total-repuestos-ord" class="green">$0</span>
-    </div>
     <div class="sep"></div>
-    <div class="grid2" style="align-items:flex-end">
-      <div><label>Mano de obra $</label><input type="number" id="f-total" value="${manoObra}" oninput="actualizarTotalOrden()"></div>
-      <div style="padding-bottom:10px;font-size:15px;font-weight:700">Total: <span id="gran-total-ord" class="green">${fmt(manoObra)}</span></div>
+    <div style="background:#1a1a1a;border-radius:10px;padding:14px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+      <div style="flex:1;min-width:140px">
+        <label style="color:#aaa;font-size:11px;margin-bottom:4px">Mano de obra $</label>
+        <input type="number" id="f-total" value="${manoObra}" oninput="actualizarTotalOrden()" style="background:#2a2a2a;border-color:#444;color:#fff;font-size:16px;font-weight:600">
+      </div>
+      <div style="flex:1;text-align:right">
+        <div style="color:#aaa;font-size:11px;margin-bottom:2px">TOTAL</div>
+        <div style="font-size:22px;font-weight:800;color:var(--primary)" id="gran-total-ord">${fmt(manoObra)}</div>
+        <div style="font-size:11px;color:#666;margin-top:2px">Repuestos: <span id="total-repuestos-ord">$0</span></div>
+      </div>
     </div>
 
     <!-- Fotos -->
@@ -789,17 +795,18 @@ function renderRepuestosOrden(){
   const lista = document.getElementById('lista-repuestos-orden');
   if(!lista)return;
   const reps = window._ordenRepuestos||[];
-  lista.innerHTML = reps.length ? `<table style="font-size:12px"><thead><tr><th>Repuesto</th><th>Cant.</th><th>P. Unit.</th><th>Subtotal</th><th>Estado</th><th></th></tr></thead><tbody>
-    ${reps.map((r,i)=>`<tr>
-      <td>${r.nombre}</td>
-      <td>${r.cantidad}</td>
-      <td>${fmt(r.precio_unitario)}</td>
-      <td><strong>${fmt(r.precio_unitario*r.cantidad)}</strong></td>
-      <td>${r.estado==='disponible'?'<span class="badge badge-green">Disponible</span>':r.estado==='pedido'?'<span class="badge badge-blue">Pedido</span>':'<span class="badge badge-amber">Pendiente</span>'}</td>
-      <td><button class="btn btn-sm btn-danger" onclick="window._ordenRepuestos.splice(${i},1);renderRepuestosOrden()"><i class="ti ti-trash"></i></button></td>
-    </tr>`).join('')}
-    </tbody></table>`
-    :'<p style="font-size:12px;color:var(--text2);padding:6px 0">Sin repuestos agregados</p>';
+  const badgeRep = e => e==='disponible'?'<span class="badge badge-green">Disponible</span>':e==='pedido'?'<span class="badge badge-blue">Pedido</span>':'<span class="badge badge-amber">Pendiente</span>';
+  lista.innerHTML = reps.length
+    ? `<div style="display:flex;flex-direction:column;gap:6px;margin-bottom:10px">${reps.map((r,i)=>`
+        <div style="display:flex;align-items:center;gap:10px;background:#fff;border:1px solid var(--border);border-radius:8px;padding:10px 12px">
+          <div style="flex:1;min-width:0">
+            <div style="font-weight:600;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${r.nombre}</div>
+            <div style="font-size:12px;color:var(--text2);margin-top:2px">${r.cantidad} u. × ${fmt(r.precio_unitario)} ${badgeRep(r.estado)}</div>
+          </div>
+          <div style="font-weight:700;font-size:15px;color:var(--primary);white-space:nowrap">${fmt(r.precio_unitario*r.cantidad)}</div>
+          <button class="btn btn-sm btn-danger" style="flex-shrink:0;padding:6px 8px" onclick="window._ordenRepuestos.splice(${i},1);renderRepuestosOrden()"><i class="ti ti-trash"></i></button>
+        </div>`).join('')}</div>`
+    : '<p style="font-size:13px;color:var(--text2);padding:4px 0 10px">Sin repuestos agregados</p>';
   const total = reps.reduce((a,r)=>a+r.precio_unitario*r.cantidad,0);
   const t = document.getElementById('total-repuestos-ord');
   if(t) t.textContent = fmt(total);
