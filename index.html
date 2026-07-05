@@ -406,13 +406,12 @@ async function renderDashboard(){
         '<div class="empty" style="padding:24px"><i class="ti ti-file-off"></i><p>Sin órdenes</p></div>'}
     </div>
   </div>
-  ${seguimientosList.length?`
   <div class="card" style="margin-top:16px;border-left:3px solid #25D366">
     <div class="seccion-title" style="margin-bottom:12px;display:flex;justify-content:space-between;align-items:center">
-      <span style="color:#1a7a3a"><i class="ti ti-message-circle-check"></i> Seguimientos post-servicio <span style="font-size:11px;font-weight:400;color:var(--text2)">(últimos 4–8 días)</span></span>
-      <span style="font-size:11px;color:var(--text2)">${seguimientosList.length} cliente${seguimientosList.length!==1?'s':''}</span>
+      <span style="color:#1a7a3a"><i class="ti ti-message-circle-check"></i> Seguimientos post-servicio</span>
+      <span style="font-size:11px;color:var(--text2)">Órdenes de los últimos 4–8 días</span>
     </div>
-    ${seguimientosList.map(o=>{
+    ${seguimientosList.length?seguimientosList.map(o=>{
       const tel = (o.clientes?.telefono||'').replace(/\D/g,'');
       const veh = [o.vehiculo_patente, o.vehiculo_modelo].filter(Boolean).join(' ');
       const msg = `Hola ${(o.cliente_nombre||'').split(' ')[0]}! 👋 Te escribimos desde *Cuarta Marcha Taller Mecánico*.\n\n¿Cómo quedó tu ${veh||'vehículo'} después del trabajo que realizamos? Esperamos que todo esté perfecto 🔧\n\nSi estás conforme, te pedimos que nos dejes una reseña en Google, nos ayuda muchísimo 🙏\n👉 ${GOOGLE_REVIEW_URL}\n\nCualquier consulta, estamos a tu disposición. ¡Gracias!`;
@@ -426,8 +425,8 @@ async function renderDashboard(){
           ${waUrl?`<a href="${waUrl}" target="_blank" class="btn btn-sm" style="background:#25D366;color:#fff;border:none"><i class="ti ti-brand-whatsapp"></i> Enviar</a>`:'<span style="font-size:12px;color:var(--text2)">Sin teléfono</span>'}
         </div>
       </div>`;
-    }).join('')}
-  </div>`:''}
+    }).join(''):'<div style="text-align:center;padding:20px;color:var(--text2)"><i class="ti ti-circle-check" style="font-size:28px;display:block;margin-bottom:8px;color:#25D366"></i>Sin seguimientos pendientes por ahora</div>'}
+  </div>
   ${recordatorios.length?`
   <div class="card" style="margin-top:16px">
     <div class="seccion-title" style="margin-bottom:12px;color:var(--amber)"><i class="ti ti-clock-alert"></i> Recordatorios de service <span style="font-size:11px;font-weight:400;color:var(--text2)">— más de 6 meses sin visita</span></div>
