@@ -146,7 +146,12 @@ tr:hover td{background:#fafafa}
   .metric-value{font-size:20px}
   td,th{padding:7px 6px}
   .btn{padding:8px 12px}
+  table{font-size:12px}
+  .hide-mobile{display:none!important}
+  .btn-sm{padding:6px 8px;font-size:11px}
 }
+/* Ensure table containers scroll horizontally */
+.card > table, .card > div > table{display:block;overflow-x:auto;-webkit-overflow-scrolling:touch}
 </style>
 </head>
 <body>
@@ -431,7 +436,7 @@ async function renderClientes(){
 
 function renderTablaClientes(data){
   if(!data.length) return '<div class="empty"><i class="ti ti-users"></i><p>No hay clientes registrados</p></div>';
-  return `<table><thead><tr><th></th><th>Nombre</th><th>DNI</th><th>Teléfono</th><th>Email</th><th>Vehículos</th><th></th></tr></thead><tbody>
+  return `<div class="table-wrap"><table><thead><tr><th></th><th>Nombre</th><th>DNI</th><th>Teléfono</th><th>Email</th><th>Vehículos</th><th></th></tr></thead><tbody>
   ${data.map(c=>{
     const vehs = window._vehsPorCliente?.[c.id]||[];
     const vehsHtml = vehs.length
@@ -447,7 +452,7 @@ function renderTablaClientes(data){
       <button class="btn btn-sm" onclick="modalCliente('${c.id}')"><i class="ti ti-edit"></i></button>
       <button class="btn btn-sm btn-danger" onclick="eliminarCliente('${c.id}')"><i class="ti ti-trash"></i></button>
     </td></tr>`;}).join('')}
-  </tbody></table>`;
+  </tbody></table></div>`;
 }
 
 function filtrarClientes(){
@@ -607,12 +612,12 @@ async function renderVehiculos(){
     <button class="btn btn-primary" onclick="modalVehiculo()"><i class="ti ti-plus"></i> Nuevo vehículo</button>
   </div>
   <div class="card" style="padding:0">
-  ${data?.length?`<table><thead><tr><th>Patente</th><th>Marca / Modelo</th><th>Año</th><th>Color</th><th>Cliente</th><th>KM</th><th></th></tr></thead><tbody>
+  ${data?.length?`<div class="table-wrap"><table><thead><tr><th>Patente</th><th>Marca / Modelo</th><th>Año</th><th>Color</th><th>Cliente</th><th>KM</th><th></th></tr></thead><tbody>
   ${data.map(v=>`<tr><td><strong>${v.patente}</strong></td><td>${v.marca} ${v.modelo}</td><td>${v.anio||'-'}</td><td>${v.color||'-'}</td><td>${v.clientes?.nombre||''} ${v.clientes?.apellido||''}</td><td>${v.kilometraje||'-'}</td>
     <td style="display:flex;gap:4px">
       <button class="btn btn-sm" onclick="modalVehiculo('${v.id}')"><i class="ti ti-edit"></i></button>
       <button class="btn btn-sm btn-danger" onclick="eliminarVehiculo('${v.id}')"><i class="ti ti-trash"></i></button>
-    </td></tr>`).join('')}</tbody></table>`:'<div class="empty"><i class="ti ti-car"></i><p>No hay vehículos</p></div>'}
+    </td></tr>`).join('')}</tbody></table></div>`:'<div class="empty"><i class="ti ti-car"></i><p>No hay vehículos</p></div>'}
   </div>`;
   window._vehiculos = data||[];
 }
@@ -684,7 +689,7 @@ async function eliminarVehiculo(id){
 
 function renderTablaOrdenes(data){
   if(!data?.length) return '<div class="empty"><i class="ti ti-file-off"></i><p>No hay órdenes</p></div>';
-  return `<table><thead><tr><th>#</th><th>Cliente</th><th>Vehículo</th><th>Ingreso</th><th>Mecánico</th><th>Prioridad</th><th>Estado</th><th>Total</th><th></th></tr></thead><tbody>
+  return `<div class="table-wrap"><table><thead><tr><th>#</th><th>Cliente</th><th>Vehículo</th><th>Ingreso</th><th>Mecánico</th><th>Prioridad</th><th>Estado</th><th>Total</th><th></th></tr></thead><tbody>
   ${data.map(o=>`<tr>
     <td><strong>#${o.numero}</strong></td><td>${o.cliente_nombre||'-'}</td>
     <td>${o.vehiculo_patente||''} ${o.vehiculo_marca||''} ${o.vehiculo_modelo||''}</td>
@@ -692,7 +697,7 @@ function renderTablaOrdenes(data){
     <td>${badgePrioridad(o.prioridad)}</td><td>${badgeEstado(o.estado)}</td>
     <td><strong>${fmt(o.total)}</strong></td>
     <td><button class="btn btn-sm" onclick="modalOrden('${o.id}')"><i class="ti ti-edit"></i></button></td>
-  </tr>`).join('')}</tbody></table>`;
+  </tr>`).join('')}</tbody></table></div>`;
 }
 
 function filtrarOrdenes(filtro, btn){
@@ -1323,122 +1328,53 @@ async function eliminarTurno(id){
 async function recibirClienteTurno(turnoId){
   const t = (window._turnos||[]).find(x=>x.id===turnoId);
   if(!t) return;
-
-  // Buscar datos del cliente y vehículo si están registrados
   let cliNombre = t.cliente_nombre||'';
   let cliId = t.cliente_id||null;
   let vehId = t.vehiculo_id||null;
-  let vehPatente = t.vehiculo_patente||'';
-  let vehMarca = t.vehiculo_marca||'';
-  let vehModelo = t.vehiculo_modelo||'';
-
+  let vehDesc = [t.vehiculo_patente,t.vehiculo_marca,t.vehiculo_modelo].filter(Boolean).join(' ');
   if(cliId){
     const {data:cli} = await supa.from('clientes').select('nombre,apellido').eq('id',cliId).single();
     if(cli) cliNombre = `${cli.nombre} ${cli.apellido||''}`.trim();
   }
   if(vehId){
     const {data:veh} = await supa.from('vehiculos').select('patente,marca,modelo').eq('id',vehId).single();
-    if(veh){ vehPatente=veh.patente||''; vehMarca=veh.marca||''; vehModelo=veh.modelo||''; }
+    if(veh) vehDesc = [veh.patente,veh.marca,veh.modelo].filter(Boolean).join(' ');
   }
-
   abrirModal(`
-    <div class="modal-title"><span><i class="ti ti-user-check"></i> Recibir cliente — ${cliNombre||t.tipo_trabajo}</span><button class="btn btn-sm" onclick="cerrarModal()"><i class="ti ti-x"></i></button></div>
-
+    <div class="modal-title"><span><i class="ti ti-user-check"></i> Recibir cliente</span><button class="btn btn-sm" onclick="cerrarModal()"><i class="ti ti-x"></i></button></div>
     <div class="grid2">
-      <div>
-        <label>Cliente</label>
-        <input id="rct-cli-nombre" value="${cliNombre}" placeholder="Nombre del cliente">
-      </div>
-      <div>
-        <label>Vehículo</label>
-        <input id="rct-veh-desc" value="${[vehPatente,vehMarca,vehModelo].filter(Boolean).join(' ')}" placeholder="Patente / descripción">
-      </div>
+      <div><label>Cliente</label><input id="rct-cli" value="${cliNombre}" placeholder="Nombre del cliente"></div>
+      <div><label>Vehículo</label><input id="rct-veh" value="${vehDesc}" placeholder="Patente / descripción"></div>
     </div>
-    <div>
-      <label>Trabajo solicitado</label>
-      <textarea id="rct-desc" rows="2">${t.tipo_trabajo||''}</textarea>
-    </div>
-    <div>
-      <label>Observaciones del turno</label>
-      <textarea id="rct-obs-turno" rows="2">${t.observaciones||''}</textarea>
-    </div>
-
-    <div class="sep"></div>
-    <div class="seccion-title" style="margin-bottom:10px"><i class="ti ti-clipboard-check"></i> Checklist de recepción</div>
-    <div style="display:flex;flex-direction:column;gap:8px;background:#f9f9f9;border:1px solid var(--border);border-radius:8px;padding:12px">
-      <label style="display:flex;align-items:center;gap:8px;margin:0;font-size:13px;color:var(--text);cursor:pointer">
-        <input type="checkbox" id="rct-chk1" style="width:auto"> Se revisó el exterior del vehículo
-      </label>
-      <label style="display:flex;align-items:center;gap:8px;margin:0;font-size:13px;color:var(--text);cursor:pointer">
-        <input type="checkbox" id="rct-chk2" style="width:auto"> Cliente fue informado del tiempo estimado
-      </label>
-      <label style="display:flex;align-items:center;gap:8px;margin:0;font-size:13px;color:var(--text);cursor:pointer">
-        <input type="checkbox" id="rct-chk3" style="width:auto"> Cliente autorizó diagnóstico
-      </label>
-    </div>
-
-    <div class="sep"></div>
-    <div class="seccion-title" style="margin-bottom:10px"><i class="ti ti-car"></i> Datos de ingreso</div>
+    <div><label>Trabajo solicitado</label><textarea id="rct-desc" rows="2">${t.tipo_trabajo||''}</textarea></div>
     <div class="grid2">
       <div><label>KM al ingreso</label><input type="number" id="rct-km" placeholder="Opcional"></div>
-      <div><label>Nivel de nafta</label>
-        <select id="rct-nafta">
-          <option value="">— Sin especificar —</option>
-          <option value="Lleno">Lleno</option>
-          <option value="3/4">3/4</option>
-          <option value="1/2">1/2</option>
-          <option value="1/4">1/4</option>
-          <option value="Reserva">Reserva</option>
-        </select>
-      </div>
+      <div><label>Estado inicial</label><select id="rct-estado">
+        <option value="en_diagnostico" selected>En diagnóstico</option>
+        <option value="en_proceso">En proceso</option>
+        <option value="recibido">Recibido</option>
+      </select></div>
     </div>
-    <div><label>Daños existentes al ingreso</label><textarea id="rct-danos" rows="2" placeholder="Rayones, abolladuras u otros daños previos..."></textarea></div>
-
-    <div class="grid2" style="margin-top:4px">
-      <div><label>Estado inicial</label>
-        <select id="rct-estado">
-          <option value="en_diagnostico" selected>En diagnóstico</option>
-          <option value="en_proceso">En proceso</option>
-          <option value="recibido">Recibido</option>
-        </select>
-      </div>
-      <div><label>Mecánico</label>
-        <select id="rct-mec">
-          <option value="">Sin asignar</option>
-          <option value="Angel" ${t.mecanico==='Angel'?'selected':''}>Angel</option>
-          <option value="Matias" ${t.mecanico==='Matias'?'selected':''}>Matias</option>
-          <option value="Marcelo" ${t.mecanico==='Marcelo'?'selected':''}>Marcelo</option>
-        </select>
-      </div>
-    </div>
-
+    <div><label>Mecánico</label><select id="rct-mec">
+      <option value="">Sin asignar</option>
+      <option value="Angel" ${t.mecanico==='Angel'?'selected':''}>Angel</option>
+      <option value="Matias" ${t.mecanico==='Matias'?'selected':''}>Matias</option>
+      <option value="Marcelo" ${t.mecanico==='Marcelo'?'selected':''}>Marcelo</option>
+    </select></div>
     <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:20px">
       <button class="btn" onclick="cerrarModal()">Cancelar</button>
-      <button class="btn btn-primary" onclick="guardarRecepcionTurno('${turnoId}','${cliId||''}','${vehId||''}')"><i class="ti ti-file-plus"></i> Crear orden de trabajo</button>
+      <button class="btn btn-primary" onclick="guardarRecepcionTurno('${turnoId}','${cliId||''}','${vehId||''}')"><i class="ti ti-file-plus"></i> Crear orden</button>
     </div>`);
 }
 
 async function guardarRecepcionTurno(turnoId, cliId, vehId){
-  const cliNombre = document.getElementById('rct-cli-nombre').value.trim();
-  const vehDesc = document.getElementById('rct-veh-desc').value.trim();
+  const cliNombre = document.getElementById('rct-cli').value.trim();
+  const vehDesc = document.getElementById('rct-veh').value.trim();
   const desc = document.getElementById('rct-desc').value.trim();
-  const obsTurno = document.getElementById('rct-obs-turno').value.trim();
   const km = document.getElementById('rct-km').value||'';
-  const nafta = document.getElementById('rct-nafta').value;
-  const danos = document.getElementById('rct-danos').value.trim();
   const estado = document.getElementById('rct-estado').value;
   const mecanico = document.getElementById('rct-mec').value;
-
   if(!cliNombre){alert('Ingresá el nombre del cliente');return;}
-
-  // Armar observaciones combinadas
-  const partes = [];
-  if(nafta) partes.push(`Nafta: ${nafta}`);
-  if(danos) partes.push(`Daños previos: ${danos}`);
-  if(obsTurno) partes.push(obsTurno);
-  const obsFinal = partes.join('\n');
-
-  // Resolver datos de vehículo
   let vehPatente='', vehMarca='', vehModelo='';
   if(vehId){
     const {data:veh} = await supa.from('vehiculos').select('patente,marca,modelo').eq('id',vehId).single();
@@ -1446,33 +1382,17 @@ async function guardarRecepcionTurno(turnoId, cliId, vehId){
   } else {
     vehPatente = vehDesc;
   }
-
-  const ordenData = {
-    cliente_id: cliId||null,
-    cliente_nombre: cliNombre,
-    vehiculo_id: vehId||null,
-    vehiculo_patente: vehPatente,
-    vehiculo_marca: vehMarca,
-    vehiculo_modelo: vehModelo,
-    descripcion_cliente: desc,
-    observaciones: obsFinal,
-    kilometraje_ingreso: km,
-    estado: estado,
-    mecanico: mecanico,
-    fecha_ingreso: hoy(),
-    prioridad: 'normal',
-    total: 0
-  };
-
-  const {error:ordErr} = await supa.from('ordenes').insert(ordenData);
+  const {error:ordErr} = await supa.from('ordenes').insert({
+    cliente_id:cliId||null, cliente_nombre:cliNombre,
+    vehiculo_id:vehId||null, vehiculo_patente:vehPatente, vehiculo_marca:vehMarca, vehiculo_modelo:vehModelo,
+    descripcion_cliente:desc, kilometraje_ingreso:km,
+    estado, mecanico, fecha_ingreso:hoy(), prioridad:'normal', total:0
+  });
   if(ordErr){alert('Error al crear orden: '+ordErr.message);return;}
-
-  const {error:turErr} = await supa.from('turnos').update({estado:'en_proceso'}).eq('id',turnoId);
-  if(turErr) console.warn('No se pudo actualizar el turno:', turErr.message);
-
+  await supa.from('turnos').update({estado:'en_proceso'}).eq('id',turnoId);
   cerrarModal();
   await renderTurnos();
-  alert('Orden de trabajo creada correctamente.');
+  alert('Orden de trabajo creada.');
 }
 
 async function aplicarComisionATodos(){
@@ -1501,12 +1421,12 @@ async function renderPrecios(){
     <button class="btn btn-primary" onclick="modalPrecio()"><i class="ti ti-plus"></i> Nuevo precio</button>
   </div>
   <div class="card" style="padding:0">
-  ${data?.length?`<table><thead><tr><th>Descripción</th><th>Categoría</th><th>Hs. trabajo</th><th>Precio contado</th><th>Precio tarjeta</th><th></th></tr></thead><tbody>
+  ${data?.length?`<div class="table-wrap"><table><thead><tr><th>Descripción</th><th>Categoría</th><th>Hs. trabajo</th><th>Precio contado</th><th>Precio tarjeta</th><th></th></tr></thead><tbody>
   ${data.map(p=>`<tr><td><strong>${p.descripcion}</strong></td><td><span class="badge badge-gray">${p.categoria||'mano_de_obra'}</span></td><td><span class="badge badge-blue">${p.horas_trabajo||0}h</span></td><td class="green"><strong>${fmt(p.precio_contado)}</strong></td><td class="blue">${fmt(p.precio_tarjeta)}</td>
     <td style="display:flex;gap:4px">
       <button class="btn btn-sm" onclick="modalPrecio('${p.id}')"><i class="ti ti-edit"></i></button>
       <button class="btn btn-sm btn-danger" onclick="eliminarPrecio('${p.id}')"><i class="ti ti-trash"></i></button>
-    </td></tr>`).join('')}</tbody></table>`:'<div class="empty"><i class="ti ti-tags"></i><p>No hay precios cargados</p></div>'}
+    </td></tr>`).join('')}</tbody></table></div>`:'<div class="empty"><i class="ti ti-tags"></i><p>No hay precios cargados</p></div>'}
   </div>`;
   window._precios = data||[];
 }
@@ -1554,14 +1474,14 @@ async function renderPresupuestos(){
     <button class="btn btn-primary" onclick="modalPresupuesto()"><i class="ti ti-plus"></i> Nuevo presupuesto</button>
   </div>
   <div class="card" style="padding:0">
-  ${data?.length?`<table><thead><tr><th>#</th><th>Cliente</th><th>Fecha</th><th>Tipo</th><th>Estado</th><th>Total</th><th></th></tr></thead><tbody>
+  ${data?.length?`<div class="table-wrap"><table><thead><tr><th>#</th><th>Cliente</th><th>Fecha</th><th>Tipo</th><th>Estado</th><th>Total</th><th></th></tr></thead><tbody>
   ${data.map(p=>{const eb=p.estado==='aprobado'?'badge-green':p.estado==='rechazado'?'badge-red':'badge-amber';
   return `<tr><td><strong>#${p.numero}</strong></td><td>${p.cliente_nombre||'-'}</td><td>${fmtFecha(p.fecha)}</td><td><span class="badge badge-gray">${p.tipo_precio==='tarjeta'?'Tarjeta':'Contado'}</span></td><td><span class="badge ${eb}">${p.estado}</span></td><td><strong>${fmt(p.total)}</strong></td>
     <td style="display:flex;gap:4px">
       <button class="btn btn-sm" onclick="verPresupuesto('${p.id}')"><i class="ti ti-eye"></i></button>
       <button class="btn btn-sm" title="Descargar PDF" onclick="generarPresupuestoPDF('${p.id}')"><i class="ti ti-file-download"></i></button>
       <button class="btn btn-sm btn-danger" onclick="eliminarPresupuesto('${p.id}')"><i class="ti ti-trash"></i></button>
-    </td></tr>`;}).join('')}</tbody></table>`:'<div class="empty"><i class="ti ti-calculator"></i><p>No hay presupuestos</p></div>'}
+    </td></tr>`;}).join('')}</tbody></table></div>`:'<div class="empty"><i class="ti ti-calculator"></i><p>No hay presupuestos</p></div>'}
   </div>`;
   window._presupuestos = data||[];
 }
@@ -2109,14 +2029,14 @@ async function renderCuentas(){
     <button class="btn btn-primary" onclick="modalMovimiento()"><i class="ti ti-plus"></i> Registrar movimiento</button>
   </div>
   <div class="card" style="padding:0">
-  ${resumen.length?`<table><thead><tr><th>Cliente</th><th>Movimientos</th><th>Saldo</th><th>Estado</th><th></th></tr></thead><tbody>
+  ${resumen.length?`<div class="table-wrap"><table><thead><tr><th>Cliente</th><th>Movimientos</th><th>Saldo</th><th>Estado</th><th></th></tr></thead><tbody>
   ${resumen.map(c=>`<tr>
     <td><div style="font-weight:500">${c.nombre} ${c.apellido}</div></td>
     <td>${c.movimientos}</td>
     <td><strong class="${c.saldo>0?'red':c.saldo<0?'green':''}">${fmt(Math.abs(c.saldo))}</strong></td>
     <td>${c.saldo>0?'<span class="badge badge-red">Debe</span>':c.saldo<0?'<span class="badge badge-green">A favor</span>':'<span class="badge badge-gray">Al día</span>'}</td>
     <td><button class="btn btn-sm" onclick="verCuenta('${c.id}','${c.nombre} ${c.apellido}')"><i class="ti ti-eye"></i> Ver</button></td>
-  </tr>`).join('')}</tbody></table>`:'<div class="empty"><i class="ti ti-credit-card"></i><p>Sin datos</p></div>'}
+  </tr>`).join('')}</tbody></table></div>`:'<div class="empty"><i class="ti ti-credit-card"></i><p>Sin datos</p></div>'}
   </div>`;
 }
 
@@ -2342,9 +2262,9 @@ async function renderCaja(){
     <button class="btn btn-danger" onclick="modalCaja('egreso')"><i class="ti ti-arrow-up"></i> Egreso</button>
   </div>
   <div class="card" style="padding:0">
-  ${data?.length?`<table><thead><tr><th>Fecha</th><th>Tipo</th><th>Concepto</th><th>Categoría</th><th>Forma de pago</th><th>Monto</th><th></th></tr></thead><tbody>
+  ${data?.length?`<div class="table-wrap"><table><thead><tr><th>Fecha</th><th>Tipo</th><th>Concepto</th><th>Categoría</th><th>Forma de pago</th><th>Monto</th><th></th></tr></thead><tbody>
   ${data.map(c=>`<tr><td>${fmtFecha(c.fecha)}</td><td>${c.tipo==='ingreso'?'<span class="badge badge-green">Ingreso</span>':'<span class="badge badge-red">Egreso</span>'}</td><td>${c.concepto}</td><td>${c.categoria||'-'}</td><td>${c.forma_pago||'-'}</td><td class="${c.tipo==='ingreso'?'green':'red'}"><strong>${fmt(c.monto)}</strong></td>
-    <td><button class="btn btn-sm btn-danger" onclick="eliminarCaja('${c.id}')"><i class="ti ti-trash"></i></button></td></tr>`).join('')}</tbody></table>`:'<div class="empty"><i class="ti ti-cash"></i><p>Sin movimientos</p></div>'}
+    <td><button class="btn btn-sm btn-danger" onclick="eliminarCaja('${c.id}')"><i class="ti ti-trash"></i></button></td></tr>`).join('')}</tbody></table></div>`:'<div class="empty"><i class="ti ti-cash"></i><p>Sin movimientos</p></div>'}
   </div>`;
 }
 
