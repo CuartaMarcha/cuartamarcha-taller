@@ -1005,8 +1005,13 @@ async function guardarTurno(id){
     observaciones:document.getElementById('f-obs-t').value
   };
   if(!data.fecha||!data.hora||!data.tipo_trabajo){alert('Completá fecha, hora y tipo de trabajo');return;}
-  if(id){await supa.from('turnos').update(data).eq('id',id);}
-  else{await supa.from('turnos').insert(data);}
+  if(id){
+    const {error:e} = await supa.from('turnos').update(data).eq('id',id);
+    if(e){alert('Error al actualizar turno: '+e.message);return;}
+  } else {
+    const {error:e} = await supa.from('turnos').insert(data);
+    if(e){alert('Error al guardar turno: '+e.message);return;}
+  }
   cerrarModal(); await renderTurnos();
 }
 
