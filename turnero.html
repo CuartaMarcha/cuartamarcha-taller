@@ -386,8 +386,40 @@ async function confirmarTurno(){
   const obs=document.getElementById('t-obs').value.trim();
   const email=document.getElementById('t-email').value.trim();
 
+  // Buscar si ya existe un cliente con ese teléfono, si no crearlo
+  let clienteId=null, vehiculoId=null;
+  const telLimpio=tel.replace(/\D/g,'');
+  const {data:cliExist}=await supa.from('clientes').select('id').ilike('telefono','%'+telLimpio.slice(-8)+'%').maybeSingle();
+  if(cliExist){
+    clienteId=cliExist.id;
+  } else {
+    const nombreParts=nombre.split(' ');
+    const {data:nuevoCli}=await supa.from('clientes').insert({
+      nombre:nombreParts[0]||nombre,
+      apellido:nombreParts.slice(1).join(' ')||'',
+      telefono:tel,
+      email:email||''
+    }).select('id').single();
+    if(nuevoCli) clienteId=nuevoCli.id;
+  }
+
+  // Crear vehículo si hay datos suficientes
+  if(clienteId && auto){
+    const parts=auto.trim().split(' ');
+    const {data:nuevoVeh}=await supa.from('vehiculos').insert({
+      cliente_id:clienteId,
+      marca:parts[0]||'',
+      modelo:parts.slice(1).join(' ')||'',
+      patente:patente||null,
+      color:color||null
+    }).select('id').single();
+    if(nuevoVeh) vehiculoId=nuevoVeh.id;
+  }
+
   const {error}=await supa.from('turnos').insert({
+    cliente_id: clienteId||null,
     cliente_nombre: nombre,
+    vehiculo_id: vehiculoId||null,
     vehiculo_patente: patente||null,
     vehiculo_modelo: auto,
     vehiculo_color: color||null,
