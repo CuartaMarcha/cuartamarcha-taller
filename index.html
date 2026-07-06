@@ -1280,17 +1280,19 @@ async function guardarOrden(id){
   if(estadoFinal==='entregado' && cliId && totalGeneral>0){
     const {data:ord} = await supa.from('ordenes').select('numero').eq('id',ordenId).single();
     const cliNombre = `${cls?.nombre||''} ${cls?.apellido||''}`.trim();
+    // Guardar datos en variable global para evitar problemas con caracteres especiales en onclick
+    window._pagoOrden = {ordenId, cliId, cliNombre, total: totalGeneral};
     abrirModal(`
       <div class="modal-title"><span><i class="ti ti-circle-check" style="color:#1a7a3a"></i> Orden entregada</span><button class="btn btn-sm" onclick="cerrarModal()"><i class="ti ti-x"></i></button></div>
       <p style="margin-bottom:6px">Orden <strong>#${ord?.numero||''}</strong> · Cliente: <strong>${cliNombre}</strong></p>
       <p style="color:var(--text2);font-size:13px;margin-bottom:20px">Total de la orden: <strong style="font-size:16px;color:var(--text)">${fmt(totalGeneral)}</strong></p>
       <p style="font-weight:600;margin-bottom:12px">¿El cliente abona ahora?</p>
       <div style="display:flex;flex-direction:column;gap:10px">
-        <button class="btn btn-primary" style="justify-content:flex-start;padding:14px 16px" onclick="registrarPagoOrden('${ordenId}','${cliId}','${cliNombre}',${totalGeneral},${totalGeneral},'completo')">
+        <button class="btn btn-primary" style="justify-content:flex-start;padding:14px 16px" onclick="const p=window._pagoOrden;registrarPagoOrden(p.ordenId,p.cliId,p.cliNombre,p.total,p.total,'completo')">
           <i class="ti ti-circle-check" style="font-size:20px"></i>
           <div style="text-align:left"><div style="font-weight:600">Sí, abona completo</div><div style="font-size:12px;opacity:.8">${fmt(totalGeneral)} — cancela la cuenta</div></div>
         </button>
-        <button class="btn" style="justify-content:flex-start;padding:14px 16px;border:1.5px solid var(--border)" onclick="modalPagoParcialOrden('${ordenId}','${cliId}','${cliNombre}',${totalGeneral})">
+        <button class="btn" style="justify-content:flex-start;padding:14px 16px;border:1.5px solid var(--border)" onclick="const p=window._pagoOrden;modalPagoParcialOrden(p.ordenId,p.cliId,p.cliNombre,p.total)">
           <i class="ti ti-cash" style="font-size:20px"></i>
           <div style="text-align:left"><div style="font-weight:600">Abona parcialmente</div><div style="font-size:12px;color:var(--text2)">Registrar un monto menor</div></div>
         </button>
@@ -1305,9 +1307,16 @@ async function guardarOrden(id){
 async function registrarPagoOrden(ordenId, cliId, cliNombre, totalOrden, montoPago, tipo){
   const {data:ord} = await supa.from('ordenes').select('numero').eq('id',ordenId).single();
   const num = ord?.numero||'';
-  // Si pago completo: eliminar todos los débitos vinculados a esta orden (repuestos pendientes, presupuesto, etc.)
+  // Si pago completo: eliminar todos los débitos de esta orden y presupuesto vinculado
   if(tipo==='completo'){
     await supa.from('cuenta_corriente').delete().ilike('concepto',`%[ORD:${ordenId}]%`).eq('cliente_id',cliId);
+    // Cancelar también el débito del presupuesto si la orden viene de uno
+    const {data:ordData} = await supa.from('ordenes').select('observaciones').eq('id',ordenId).single();
+    const presMatch = (ordData?.observaciones||'').match(/presupuesto #(\d+)/i);
+    if(presMatch){
+      const {data:pres} = await supa.from('presupuestos').select('id').eq('numero',presMatch[1]).maybeSingle();
+      if(pres) await supa.from('cuenta_corriente').delete().ilike('concepto',`%[PRES:${pres.id}]%`).eq('cliente_id',cliId);
+    }
   }
   // Crédito en cuenta corriente
   await supa.from('cuenta_corriente').insert({
@@ -1347,10 +1356,12 @@ function modalPagoParcialOrden(ordenId, cliId, cliNombre, totalOrden){
 }
 
 async function eliminarOrden(id){
-  if(!confirm('¿Eliminar esta orden de trabajo? Se borrarán también sus repuestos, fotos y recordatorios.')) return;
+  if(!confirm('¿Eliminar esta orden de trabajo? Se borrarán también sus repuestos, fotos, recordatorios y movimientos de cuenta.')) return;
   await supa.from('orden_repuestos').delete().eq('orden_id',id);
   await supa.from('orden_fotos').delete().eq('orden_id',id);
   await supa.from('recordatorios').delete().eq('orden_id',id);
+  await supa.from('cuenta_corriente').delete().ilike('concepto',`%[ORD:${id}]%`);
+  await supa.from('caja').delete().ilike('concepto',`%[REP:${id}]%`);
   await supa.from('ordenes').delete().eq('id',id);
   await renderOrdenes();
 }
@@ -1763,30 +1774,42 @@ async function guardarRecepcionTurno(turnoId, cliId, vehId){
 
   const t = (window._turnos||[]).find(x=>x.id===turnoId)||{};
 
-  // Si no hay cliente registrado, crearlo automáticamente
+  // Si no hay cliente registrado, buscar por teléfono antes de crear
   if(!cliId){
-    const nombreParts = cliNombre.split(' ');
-    const {data:nuevoCli} = await supa.from('clientes').insert({
-      nombre: nombreParts[0]||cliNombre,
-      apellido: nombreParts.slice(1).join(' ')||'',
-      telefono: t.telefono_contacto||''
-    }).select().single();
-    if(nuevoCli) cliId = nuevoCli.id;
+    const telBuscar = (t.telefono_contacto||'').replace(/\D/g,'');
+    if(telBuscar){
+      const {data:cliExist} = await supa.from('clientes').select('id').ilike('telefono','%'+telBuscar.slice(-8)+'%').maybeSingle();
+      if(cliExist) cliId = cliExist.id;
+    }
+    if(!cliId){
+      const nombreParts = cliNombre.split(' ');
+      const {data:nuevoCli} = await supa.from('clientes').insert({
+        nombre: nombreParts[0]||cliNombre,
+        apellido: nombreParts.slice(1).join(' ')||'',
+        telefono: t.telefono_contacto||''
+      }).select().single();
+      if(nuevoCli) cliId = nuevoCli.id;
+    }
   }
 
-  // Si no hay vehículo registrado, crearlo automáticamente
+  // Si no hay vehículo registrado, buscar por patente antes de crear
   let vehPatente='', vehMarca='', vehModelo='';
   if(vehId){
     const {data:veh} = await supa.from('vehiculos').select('patente,marca,modelo').eq('id',vehId).single();
     if(veh){vehPatente=veh.patente||'';vehMarca=veh.marca||'';vehModelo=veh.modelo||'';}
   } else {
-    // Intentar parsear "Marca Modelo" del campo vehDesc o del turno
     const autoStr = vehDesc || t.vehiculo_modelo || '';
     const parts = autoStr.trim().split(' ');
     vehMarca = parts[0]||'';
     vehModelo = parts.slice(1).join(' ')||'';
     vehPatente = t.vehiculo_patente||'';
     if(cliId && (vehMarca||vehPatente)){
+      // Verificar si ya existe ese vehículo para ese cliente
+      let vehExistQ = supa.from('vehiculos').select('id').eq('cliente_id',cliId);
+      if(vehPatente) vehExistQ = vehExistQ.ilike('patente',vehPatente);
+      const {data:vehExist} = await vehExistQ.maybeSingle();
+      if(vehExist){ vehId = vehExist.id; }
+      else {
       const {data:nuevoVeh} = await supa.from('vehiculos').insert({
         cliente_id: cliId,
         marca: vehMarca,
@@ -1795,6 +1818,7 @@ async function guardarRecepcionTurno(turnoId, cliId, vehId){
         color: t.vehiculo_color||null
       }).select().single();
       if(nuevoVeh) vehId = nuevoVeh.id;
+      }
     }
   }
 
@@ -2211,6 +2235,8 @@ async function enviarPresupuestoWP(id){
 }
 
 async function aprobarPresupuesto(id){
+  const {data:pCheck} = await supa.from('presupuestos').select('estado').eq('id',id).single();
+  if(pCheck?.estado==='aprobado'){alert('Este presupuesto ya fue aprobado.');return;}
   await supa.from('presupuestos').update({estado:'aprobado'}).eq('id',id);
   const {data:p} = await supa.from('presupuestos').select('*').eq('id',id).single();
   // Generar cargo en cuenta corriente si tiene cliente
@@ -2267,12 +2293,8 @@ async function crearOrdenDesdePresupuesto(presId, conTurno){
     total: p.total,
     observaciones: `Generada desde presupuesto #${p.numero}`
   }).select().single();
-  // Insertar repuestos como items de la orden también
-  if(nueva && items?.length){
-    await supa.from('orden_repuestos').insert(
-      items.map(it=>({orden_id:nueva.id,nombre:it.descripcion,cantidad:it.cantidad,precio_unitario:it.precio_unitario,subtotal:it.subtotal,estado:'pendiente'}))
-    );
-  }
+  // Los ítems del presupuesto quedan en descripcion_cliente como referencia.
+  // No se importan como repuestos para no distorsionar el cálculo de mano de obra.
   if(!conTurno){
     cerrarModal();
     alert(`Orden #${nueva?.numero||''} creada correctamente`);
