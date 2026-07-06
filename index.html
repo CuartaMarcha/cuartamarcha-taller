@@ -830,7 +830,12 @@ async function modalOrden(id){
   } else {
     window._ordenRepuestos = [];
   }
-  window._ordenServicios = [];
+  // Si la orden tiene total almacenado que no está cubierto por repuestos, pre-cargar como mano de obra
+  if(manoObra > 0){
+    window._ordenServicios = [{descripcion:'Mano de obra', cantidad:1, precio_unitario:manoObra}];
+  } else {
+    window._ordenServicios = [];
+  }
   abrirModal(`
     <div class="modal-title"><span>${id?'Editar orden #'+o.numero:'Nueva orden de trabajo'}</span><button class="btn btn-sm" onclick="cerrarModal()"><i class="ti ti-x"></i></button></div>
 
