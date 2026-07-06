@@ -1293,11 +1293,11 @@ async function guardarOrden(id){
       <p style="color:var(--text2);font-size:13px;margin-bottom:20px">Total de la orden: <strong style="font-size:16px;color:var(--text)">${fmt(totalGeneral)}</strong></p>
       <p style="font-weight:600;margin-bottom:12px">¿El cliente abona ahora?</p>
       <div style="display:flex;flex-direction:column;gap:10px">
-        <button class="btn btn-primary" style="justify-content:flex-start;padding:14px 16px" onclick="const p=window._pagoOrden;registrarPagoOrden(p.ordenId,p.cliId,p.cliNombre,p.total,p.total,'completo')">
+        <button class="btn btn-primary" style="justify-content:flex-start;padding:14px 16px" onclick="const p=window._pagoOrden;modalConfirmarPago(p.ordenId,p.cliId,p.cliNombre,p.total,p.total,'completo')">
           <i class="ti ti-circle-check" style="font-size:20px"></i>
           <div style="text-align:left"><div style="font-weight:600">Sí, abona completo</div><div style="font-size:12px;opacity:.8">${fmt(totalGeneral)} — cancela la cuenta</div></div>
         </button>
-        <button class="btn" style="justify-content:flex-start;padding:14px 16px;border:1.5px solid var(--border)" onclick="const p=window._pagoOrden;modalPagoParcialOrden(p.ordenId,p.cliId,p.cliNombre,p.total)">
+        <button class="btn" style="justify-content:flex-start;padding:14px 16px;border:1.5px solid var(--border)" onclick="const p=window._pagoOrden;modalConfirmarPago(p.ordenId,p.cliId,p.cliNombre,p.total,0,'parcial')">
           <i class="ti ti-cash" style="font-size:20px"></i>
           <div style="text-align:left"><div style="font-weight:600">Abona parcialmente</div><div style="font-size:12px;color:var(--text2)">Registrar un monto menor</div></div>
         </button>
@@ -1309,13 +1309,38 @@ async function guardarOrden(id){
   }
 }
 
-async function registrarPagoOrden(ordenId, cliId, cliNombre, totalOrden, montoPago, tipo){
+function modalConfirmarPago(ordenId, cliId, cliNombre, totalOrden, montoInicial, tipo){
+  window._pagoOrden = {ordenId, cliId, cliNombre, total: totalOrden};
+  abrirModal(`
+    <div class="modal-title"><span><i class="ti ti-cash"></i> Registrar cobro</span><button class="btn btn-sm" onclick="cerrarModal()"><i class="ti ti-x"></i></button></div>
+    <p style="color:var(--text2);font-size:13px;margin-bottom:16px">Total de la orden: <strong>${fmt(totalOrden)}</strong></p>
+    <label>Monto que abona *</label>
+    <input type="number" id="pago-monto" value="${montoInicial||''}" placeholder="0" style="font-size:18px;text-align:center">
+    <label style="margin-top:12px">Forma de pago *</label>
+    <select id="pago-forma">
+      <option value="efectivo">Efectivo</option>
+      <option value="transferencia">Transferencia</option>
+      <option value="tarjeta_debito">Tarjeta débito</option>
+      <option value="tarjeta_credito">Tarjeta crédito</option>
+      <option value="cheque">Cheque</option>
+    </select>
+    <div style="display:flex;gap:8px;margin-top:20px">
+      <button class="btn" style="flex:1" onclick="cerrarModal()">Cancelar</button>
+      <button class="btn btn-primary" style="flex:1" onclick="
+        const m=Number(document.getElementById('pago-monto').value);
+        const f=document.getElementById('pago-forma').value;
+        if(!m||m<=0){alert('Ingresá un monto');return;}
+        const p=window._pagoOrden;
+        registrarPagoOrden(p.ordenId,p.cliId,p.cliNombre,p.total,m,'${tipo}',f)
+      "><i class="ti ti-check"></i> Confirmar cobro</button>
+    </div>`);
+}
+
+async function registrarPagoOrden(ordenId, cliId, cliNombre, totalOrden, montoPago, tipo, formaPago){
   const {data:ord} = await supa.from('ordenes').select('numero').eq('id',ordenId).single();
   const num = ord?.numero||'';
-  // Si pago completo: eliminar todos los débitos de esta orden y presupuesto vinculado
   if(tipo==='completo'){
     await supa.from('cuenta_corriente').delete().ilike('concepto',`%[ORD:${ordenId}]%`).eq('cliente_id',cliId);
-    // Cancelar también el débito del presupuesto si la orden viene de uno
     const {data:ordData} = await supa.from('ordenes').select('observaciones').eq('id',ordenId).single();
     const presMatch = (ordData?.observaciones||'').match(/presupuesto #(\d+)/i);
     if(presMatch){
@@ -1323,41 +1348,19 @@ async function registrarPagoOrden(ordenId, cliId, cliNombre, totalOrden, montoPa
       if(pres) await supa.from('cuenta_corriente').delete().ilike('concepto',`%[PRES:${pres.id}]%`).eq('cliente_id',cliId);
     }
   }
-  // Crédito en cuenta corriente
   await supa.from('cuenta_corriente').insert({
-    cliente_id:cliId,
-    tipo:'credito',
-    monto:montoPago,
+    cliente_id:cliId, tipo:'credito', monto:montoPago,
     concepto:`[ORD:${ordenId}] Pago orden #${num}${tipo==='completo'?' — pago total':' — pago parcial'}`,
-    fecha:hoy(),
-    saldo:0
+    fecha:hoy(), saldo:0
   });
-  // Ingreso en caja
-  await supa.from('caja').insert({
-    tipo:'ingreso',
-    monto:montoPago,
+  const {error:cajaErr} = await supa.from('caja').insert({
+    tipo:'ingreso', monto:montoPago,
     concepto:`Cobro orden #${num} — ${cliNombre}`,
-    categoria:'Servicio',
-    fecha:hoy()
+    categoria:'Servicio', forma_pago:formaPago||'efectivo', fecha:hoy()
   });
+  if(cajaErr) console.error('Error caja:', cajaErr);
   cerrarModal();
-  alert(`✓ Pago de ${fmt(montoPago)} registrado en cuenta corriente y caja.`);
-}
-
-function modalPagoParcialOrden(ordenId, cliId, cliNombre, totalOrden){
-  abrirModal(`
-    <div class="modal-title"><span><i class="ti ti-cash"></i> Pago parcial</span><button class="btn btn-sm" onclick="cerrarModal()"><i class="ti ti-x"></i></button></div>
-    <p style="color:var(--text2);font-size:13px;margin-bottom:16px">Total de la orden: <strong>${fmt(totalOrden)}</strong></p>
-    <label>Monto que abona *</label>
-    <input type="number" id="monto-parcial" placeholder="0" style="font-size:18px;text-align:center">
-    <div style="display:flex;gap:8px;margin-top:20px">
-      <button class="btn" style="flex:1" onclick="cerrarModal()">Cancelar</button>
-      <button class="btn btn-primary" style="flex:1" onclick="
-        const m=Number(document.getElementById('monto-parcial').value);
-        if(!m||m<=0){alert('Ingresá un monto');return;}
-        registrarPagoOrden('${ordenId}','${cliId}','${cliNombre}',${totalOrden},m,'parcial')
-      "><i class="ti ti-check"></i> Registrar pago</button>
-    </div>`);
+  alert(`✓ Cobro de ${fmt(montoPago)} registrado${cajaErr?' (atención: no se guardó en caja, revisá)':' en cuenta corriente y caja'}.`);
 }
 
 async function eliminarOrden(id){
