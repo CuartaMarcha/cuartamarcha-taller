@@ -1243,19 +1243,23 @@ async function guardarOrden(id){
       }
     }
   }
-  // Sincronizar repuestos pendientes de pago con cuenta corriente
+  // Sincronizar deuda total (mano de obra + repuestos pendientes) en cuenta corriente
   if(ordenId && cliId){
     const repsPendientes = reps.filter(r=>r.estado==='pendiente_pago');
-    const totalPendiente = repsPendientes.reduce((a,r)=>a+r.precio_unitario*r.cantidad,0);
+    const totalRepsPendientes = repsPendientes.reduce((a,r)=>a+r.precio_unitario*r.cantidad,0);
+    const totalDeuda = manoObra + totalRepsPendientes;
     const marker = `[ORD:${ordenId}]`;
     await supa.from('cuenta_corriente').delete().ilike('concepto',`%${marker}%`).eq('cliente_id',cliId);
-    if(totalPendiente>0){
+    if(totalDeuda>0){
       const {data:ord} = await supa.from('ordenes').select('numero').eq('id',ordenId).single();
+      const partes = [];
+      if(manoObra>0) partes.push(`mano de obra ${fmt(manoObra)}`);
+      if(totalRepsPendientes>0) partes.push(`repuestos ${fmt(totalRepsPendientes)}`);
       await supa.from('cuenta_corriente').insert({
         cliente_id:cliId,
         tipo:'debito',
-        monto:totalPendiente,
-        concepto:`${marker} Repuestos pendientes de pago — Orden #${ord?.numero||''}`,
+        monto:totalDeuda,
+        concepto:`${marker} Orden #${ord?.numero||''} — ${partes.join(' + ')}`,
         fecha:hoy(),
         saldo:0
       });
