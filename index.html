@@ -1358,9 +1358,14 @@ async function registrarPagoOrden(ordenId, cliId, cliNombre, totalOrden, montoPa
     concepto:`Cobro orden #${num} — ${cliNombre}`,
     categoria:'Servicio', forma_pago:formaPago||'efectivo', fecha:hoy()
   });
-  if(cajaErr) console.error('Error caja:', cajaErr);
   cerrarModal();
-  alert(`✓ Cobro de ${fmt(montoPago)} registrado${cajaErr?' (atención: no se guardó en caja, revisá)':' en cuenta corriente y caja'}.`);
+  if(cajaErr){
+    console.error('Error caja:', cajaErr);
+    alert(`✓ Cobro registrado en cuenta corriente.\n\n⚠️ No se guardó en caja.\nError: ${cajaErr.message||JSON.stringify(cajaErr)}`);
+  } else {
+    alert(`✓ Cobro de ${fmt(montoPago)} registrado en cuenta corriente y caja.`);
+    if(document.querySelector('.tab-btn.active')?.dataset?.tab==='caja') await renderCaja();
+  }
 }
 
 async function eliminarOrden(id){
