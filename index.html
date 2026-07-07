@@ -2738,10 +2738,12 @@ async function renderCaja(){
     <div class="metric"><div class="metric-label">Egresos de hoy</div><div class="metric-value red">${fmt(egrHoy)}</div></div>
     <div class="metric"><div class="metric-label">Balance de hoy</div><div class="metric-value ${ingHoy-egrHoy>=0?'green':'red'}">${fmt(ingHoy-egrHoy)}</div></div>
   </div>
-  <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px">
-    <button class="btn btn-primary" onclick="modalCaja('ingreso')"><i class="ti ti-arrow-down"></i> Ingreso</button>
-    <button class="btn btn-danger" onclick="modalCaja('egreso')"><i class="ti ti-arrow-up"></i> Egreso</button>
-    <button class="btn" style="background:#111;color:#fff;font-weight:600;margin-left:auto" onclick="modalArqueoCaja()"><i class="ti ti-lock"></i> Cerrar caja</button>
+  <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:16px">
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-primary" onclick="modalCaja('ingreso')"><i class="ti ti-arrow-down"></i> Ingreso</button>
+      <button class="btn btn-danger" onclick="modalCaja('egreso')"><i class="ti ti-arrow-up"></i> Egreso</button>
+    </div>
+    <button class="btn" style="background:#111;color:#fff;font-weight:600" onclick="modalArqueoCaja()"><i class="ti ti-lock"></i> Cerrar caja</button>
   </div>
   <div class="card" style="padding:0">
   ${data?.length?`<div class="table-wrap"><table><thead><tr><th>Fecha</th><th>Tipo</th><th>Concepto</th><th>Categoría</th><th>Forma de pago</th><th>Monto</th><th></th></tr></thead><tbody>
@@ -2888,37 +2890,8 @@ async function confirmarCierreCaja(){
   });
 
   if(error){ alert('Error al guardar el cierre: ' + error.message); return; }
-
   cerrarModal();
-  // Imprimir comprobante
-  const win = window.open('','_blank');
-  const linFormas = Object.entries(d.formas).map(([k,v])=>`<tr><td style="text-transform:capitalize">${k}</td><td style="text-align:right;color:green;font-weight:600">${fmt(v)}</td></tr>`).join('');
-  win.document.write(`<html><head><title>Cierre de caja</title>
-  <style>body{font-family:sans-serif;max-width:360px;margin:0 auto;padding:16px} h2{text-align:center;margin-bottom:4px} .sub{text-align:center;color:#666;font-size:13px;margin-bottom:16px} table{width:100%;border-collapse:collapse;margin-bottom:12px} td{padding:5px 4px;font-size:13px;border-bottom:1px solid #eee} .total{font-size:15px;font-weight:700} .dif{font-size:18px;font-weight:700;text-align:center;padding:10px;margin:12px 0;border-radius:6px} @media print{button{display:none}}</style>
-  </head><body>
-  <h2>Cuarta Marcha</h2>
-  <div class="sub">Cierre de caja — ${fmtFecha(d.hoyStr)}</div>
-  <table>
-    <tr><td>Ingresos del día</td><td style="text-align:right;color:green;font-weight:600">${fmt(d.totalIng)}</td></tr>
-    <tr><td>Egresos del día</td><td style="text-align:right;color:red;font-weight:600">${fmt(d.totalEgr)}</td></tr>
-    <tr><td class="total">Balance sistema</td><td style="text-align:right;font-weight:700">${fmt(d.balance)}</td></tr>
-  </table>
-  <div style="font-weight:600;margin-bottom:4px">Por forma de pago:</div>
-  <table>${linFormas}</table>
-  <div style="font-weight:600;margin-bottom:4px">Arqueo de efectivo:</div>
-  <table>
-    <tr><td>Efectivo sistema</td><td style="text-align:right">${fmt(d.efectivoSistema)}</td></tr>
-    <tr><td>Efectivo físico</td><td style="text-align:right">${fmt(fisico)}</td></tr>
-  </table>
-  <div class="dif" style="background:${diferencia===0?'#dcfce7':diferencia>0?'#dcfce7':'#fee2e2'};color:${diferencia===0?'#166534':diferencia>0?'#166534':'#991b1b'}">
-    ${diferencia===0?'✓ Caja cuadrada':diferencia>0?`Sobrante: ${fmt(diferencia)}`:`Faltante: ${fmt(Math.abs(diferencia))}`}
-  </div>
-  ${notas?`<div style="font-size:12px;color:#666;border-top:1px solid #eee;padding-top:8px">Notas: ${notas}</div>`:''}
-  <div style="text-align:center;margin-top:16px"><button onclick="window.print()">🖨️ Imprimir</button></div>
-  </body></html>`);
-  win.document.close();
-  win.print();
-  alert('✓ Cierre registrado correctamente.');
+  alert('✓ Cierre de caja registrado correctamente.');
 }
 
 async function modalCierreMensual(mes){
@@ -3014,36 +2987,8 @@ async function confirmarCierreMensual(){
   });
 
   if(error){ alert('Error al guardar: ' + error.message); return; }
-
   cerrarModal();
-  const win = window.open('','_blank');
-  const linFormas = Object.entries(d.formas).map(([k,v])=>`<tr><td style="text-transform:capitalize">${k}</td><td style="text-align:right;color:green;font-weight:600">${fmt(v)}</td></tr>`).join('');
-  win.document.write(`<html><head><title>Cierre mensual ${d.nombreMesStr}</title>
-  <style>body{font-family:sans-serif;max-width:420px;margin:0 auto;padding:20px} h2{text-align:center;margin-bottom:4px} .sub{text-align:center;color:#666;font-size:13px;margin-bottom:20px} table{width:100%;border-collapse:collapse;margin-bottom:14px} td{padding:6px 4px;font-size:13px;border-bottom:1px solid #eee} .total{font-size:15px;font-weight:700} .dif{font-size:18px;font-weight:700;text-align:center;padding:12px;margin:14px 0;border-radius:6px} @media print{button{display:none}}</style>
-  </head><body>
-  <h2>Cuarta Marcha</h2>
-  <div class="sub">Cierre mensual — ${d.nombreMesStr}</div>
-  <table>
-    <tr><td>Total ingresos del mes</td><td style="text-align:right;color:green;font-weight:600">${fmt(d.totalIng)}</td></tr>
-    <tr><td>Total egresos del mes</td><td style="text-align:right;color:red;font-weight:600">${fmt(d.totalEgr)}</td></tr>
-    <tr><td class="total">Balance sistema</td><td style="text-align:right;font-weight:700">${fmt(d.balance)}</td></tr>
-  </table>
-  <div style="font-weight:600;margin-bottom:4px">Ingresos por forma de pago:</div>
-  <table>${linFormas}</table>
-  <div style="font-weight:600;margin-bottom:4px">Arqueo de efectivo:</div>
-  <table>
-    <tr><td>Efectivo sistema</td><td style="text-align:right">${fmt(d.efectivoSistema)}</td></tr>
-    <tr><td>Efectivo físico</td><td style="text-align:right">${fmt(fisico)}</td></tr>
-  </table>
-  <div class="dif" style="background:${diferencia===0?'#dcfce7':diferencia>0?'#dcfce7':'#fee2e2'};color:${diferencia===0?'#166534':diferencia>0?'#166534':'#991b1b'}">
-    ${diferencia===0?'✓ Cierre cuadrado':diferencia>0?`Sobrante: ${fmt(diferencia)}`:`Faltante: ${fmt(Math.abs(diferencia))}`}
-  </div>
-  ${notas?`<div style="font-size:12px;color:#666;border-top:1px solid #eee;padding-top:10px">Notas: ${notas}</div>`:''}
-  <div style="text-align:center;margin-top:16px"><button onclick="window.print()">🖨️ Imprimir</button></div>
-  </body></html>`);
-  win.document.close();
-  win.print();
-  alert('✓ Cierre mensual registrado.');
+  alert('✓ Cierre mensual registrado correctamente.');
   await renderCierre();
 }
 
