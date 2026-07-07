@@ -2738,12 +2738,10 @@ async function renderCaja(){
     <div class="metric"><div class="metric-label">Egresos de hoy</div><div class="metric-value red">${fmt(egrHoy)}</div></div>
     <div class="metric"><div class="metric-label">Balance de hoy</div><div class="metric-value ${ingHoy-egrHoy>=0?'green':'red'}">${fmt(ingHoy-egrHoy)}</div></div>
   </div>
-  <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;margin-bottom:16px;gap:8px">
-    <button class="btn" style="background:var(--accent);color:#fff;font-weight:600" onclick="modalArqueoCaja()"><i class="ti ti-lock"></i> Cerrar caja</button>
-    <div style="display:flex;gap:8px">
-      <button class="btn btn-primary" onclick="modalCaja('ingreso')"><i class="ti ti-arrow-down"></i> Ingreso</button>
-      <button class="btn btn-danger" onclick="modalCaja('egreso')"><i class="ti ti-arrow-up"></i> Egreso</button>
-    </div>
+  <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px">
+    <button class="btn btn-primary" onclick="modalCaja('ingreso')"><i class="ti ti-arrow-down"></i> Ingreso</button>
+    <button class="btn btn-danger" onclick="modalCaja('egreso')"><i class="ti ti-arrow-up"></i> Egreso</button>
+    <button class="btn" style="background:#111;color:#fff;font-weight:600;margin-left:auto" onclick="modalArqueoCaja()"><i class="ti ti-lock"></i> Cerrar caja</button>
   </div>
   <div class="card" style="padding:0">
   ${data?.length?`<div class="table-wrap"><table><thead><tr><th>Fecha</th><th>Tipo</th><th>Concepto</th><th>Categoría</th><th>Forma de pago</th><th>Monto</th><th></th></tr></thead><tbody>
