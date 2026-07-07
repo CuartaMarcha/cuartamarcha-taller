@@ -2874,7 +2874,9 @@ async function confirmarCierreCaja(){
   const diferencia = fisico - d.efectivoSistema;
 
   const {error} = await supa.from('cierres_caja').insert({
+    tipo: 'diario',
     fecha: d.hoyStr,
+    mes: d.hoyStr.slice(0,7),
     total_ingresos: d.totalIng,
     total_egresos: d.totalEgr,
     balance_sistema: d.balance,
@@ -2917,6 +2919,132 @@ async function confirmarCierreCaja(){
   win.document.close();
   win.print();
   alert('✓ Cierre registrado correctamente.');
+}
+
+async function modalCierreMensual(mes){
+  const {data} = await supa.from('caja').select('*').eq('fecha', mes ? undefined : undefined).order('fecha');
+  const movs = data?.filter(c=>c.fecha?.slice(0,7)===mes)||[];
+  const ingresos = movs.filter(c=>c.tipo==='ingreso');
+  const egresos  = movs.filter(c=>c.tipo==='egreso');
+  const totalIng = ingresos.reduce((a,b)=>a+Number(b.monto),0);
+  const totalEgr = egresos.reduce((a,b)=>a+Number(b.monto),0);
+  const balance  = totalIng - totalEgr;
+  const ingEfectivo = ingresos.filter(c=>c.forma_pago==='efectivo').reduce((a,b)=>a+Number(b.monto),0);
+  const egrEfectivo = egresos.filter(c=>c.forma_pago==='efectivo').reduce((a,b)=>a+Number(b.monto),0);
+  const efectivoSistema = ingEfectivo - egrEfectivo;
+  const formas = {};
+  ingresos.forEach(m=>{ const k=m.forma_pago||'sin especificar'; formas[k]=(formas[k]||0)+Number(m.monto); });
+  const filasFormas = Object.entries(formas).map(([k,v])=>
+    `<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:13px">
+      <span style="text-transform:capitalize">${k}</span>
+      <span style="font-weight:600;color:var(--green)">${fmt(v)}</span>
+    </div>`).join('') || '<p style="font-size:13px;color:var(--text2)">Sin ingresos este mes</p>';
+
+  const nombres = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  const [y,mo] = mes.split('-');
+  const nombreMesStr = `${nombres[parseInt(mo)-1]} ${y}`;
+
+  window._arqueoMensualData = {mes, nombreMesStr, totalIng, totalEgr, balance, efectivoSistema, formas};
+
+  abrirModal(`
+    <div class="modal-title">
+      <span><i class="ti ti-calendar-month"></i> Cierre mensual — ${nombreMesStr}</span>
+      <button class="btn btn-sm" onclick="cerrarModal()"><i class="ti ti-x"></i></button>
+    </div>
+    <div class="grid3" style="margin-bottom:16px">
+      <div class="metric"><div class="metric-label">Total ingresos</div><div class="metric-value green">${fmt(totalIng)}</div></div>
+      <div class="metric"><div class="metric-label">Total egresos</div><div class="metric-value red">${fmt(totalEgr)}</div></div>
+      <div class="metric"><div class="metric-label">Balance sistema</div><div class="metric-value ${balance>=0?'green':'red'}">${fmt(balance)}</div></div>
+    </div>
+    <div class="card" style="margin-bottom:16px;padding:12px 16px">
+      <div style="font-weight:600;margin-bottom:8px">Ingresos por forma de pago</div>
+      ${filasFormas}
+    </div>
+    <div class="card" style="margin-bottom:16px;padding:12px 16px;background:var(--bg2)">
+      <div style="font-weight:600;margin-bottom:4px">Efectivo esperado acumulado</div>
+      <div style="font-size:22px;font-weight:700;color:var(--text)">${fmt(efectivoSistema)}</div>
+      <div style="font-size:12px;color:var(--text2);margin-top:2px">Ingresos efectivo menos egresos efectivo del mes</div>
+    </div>
+    <div style="margin-bottom:16px">
+      <label style="font-weight:600">Efectivo contado físicamente *</label>
+      <input type="number" id="arqm-fisico" placeholder="0" oninput="
+        const s=${efectivoSistema};
+        const f=Number(this.value)||0;
+        const d=f-s;
+        document.getElementById('arqm-dif').textContent=fmt(d);
+        document.getElementById('arqm-dif').style.color=d===0?'var(--text)':d>0?'var(--green)':'var(--red)';
+        document.getElementById('arqm-estado').textContent=d===0?'✓ Cierre cuadrado':d>0?'Sobrante':'Faltante';
+      " style="font-size:18px;font-weight:700;padding:12px">
+    </div>
+    <div class="card" style="margin-bottom:16px;padding:12px 16px;display:flex;justify-content:space-between;align-items:center">
+      <span id="arqm-estado" style="font-weight:600;color:var(--text2)">Ingresá el efectivo físico</span>
+      <span id="arqm-dif" style="font-size:20px;font-weight:700">—</span>
+    </div>
+    <div style="margin-bottom:16px">
+      <label>Notas del cierre</label>
+      <input id="arqm-notas" placeholder="Observaciones del mes...">
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn" onclick="cerrarModal()">Cancelar</button>
+      <button class="btn" style="background:#111;color:#fff;font-weight:600" onclick="confirmarCierreMensual()">
+        <i class="ti ti-calendar-month"></i> Confirmar cierre mensual
+      </button>
+    </div>`);
+}
+
+async function confirmarCierreMensual(){
+  const d = window._arqueoMensualData;
+  if(!d) return;
+  const fisico = Number(document.getElementById('arqm-fisico').value)||0;
+  const notas  = document.getElementById('arqm-notas').value.trim();
+  const diferencia = fisico - d.efectivoSistema;
+
+  const {error} = await supa.from('cierres_caja').insert({
+    tipo: 'mensual',
+    mes: d.mes,
+    fecha: hoy(),
+    total_ingresos: d.totalIng,
+    total_egresos: d.totalEgr,
+    balance_sistema: d.balance,
+    efectivo_sistema: d.efectivoSistema,
+    efectivo_fisico: fisico,
+    diferencia,
+    detalle_formas: JSON.stringify(d.formas),
+    notas: notas||null
+  });
+
+  if(error){ alert('Error al guardar: ' + error.message); return; }
+
+  cerrarModal();
+  const win = window.open('','_blank');
+  const linFormas = Object.entries(d.formas).map(([k,v])=>`<tr><td style="text-transform:capitalize">${k}</td><td style="text-align:right;color:green;font-weight:600">${fmt(v)}</td></tr>`).join('');
+  win.document.write(`<html><head><title>Cierre mensual ${d.nombreMesStr}</title>
+  <style>body{font-family:sans-serif;max-width:420px;margin:0 auto;padding:20px} h2{text-align:center;margin-bottom:4px} .sub{text-align:center;color:#666;font-size:13px;margin-bottom:20px} table{width:100%;border-collapse:collapse;margin-bottom:14px} td{padding:6px 4px;font-size:13px;border-bottom:1px solid #eee} .total{font-size:15px;font-weight:700} .dif{font-size:18px;font-weight:700;text-align:center;padding:12px;margin:14px 0;border-radius:6px} @media print{button{display:none}}</style>
+  </head><body>
+  <h2>Cuarta Marcha</h2>
+  <div class="sub">Cierre mensual — ${d.nombreMesStr}</div>
+  <table>
+    <tr><td>Total ingresos del mes</td><td style="text-align:right;color:green;font-weight:600">${fmt(d.totalIng)}</td></tr>
+    <tr><td>Total egresos del mes</td><td style="text-align:right;color:red;font-weight:600">${fmt(d.totalEgr)}</td></tr>
+    <tr><td class="total">Balance sistema</td><td style="text-align:right;font-weight:700">${fmt(d.balance)}</td></tr>
+  </table>
+  <div style="font-weight:600;margin-bottom:4px">Ingresos por forma de pago:</div>
+  <table>${linFormas}</table>
+  <div style="font-weight:600;margin-bottom:4px">Arqueo de efectivo:</div>
+  <table>
+    <tr><td>Efectivo sistema</td><td style="text-align:right">${fmt(d.efectivoSistema)}</td></tr>
+    <tr><td>Efectivo físico</td><td style="text-align:right">${fmt(fisico)}</td></tr>
+  </table>
+  <div class="dif" style="background:${diferencia===0?'#dcfce7':diferencia>0?'#dcfce7':'#fee2e2'};color:${diferencia===0?'#166534':diferencia>0?'#166534':'#991b1b'}">
+    ${diferencia===0?'✓ Cierre cuadrado':diferencia>0?`Sobrante: ${fmt(diferencia)}`:`Faltante: ${fmt(Math.abs(diferencia))}`}
+  </div>
+  ${notas?`<div style="font-size:12px;color:#666;border-top:1px solid #eee;padding-top:10px">Notas: ${notas}</div>`:''}
+  <div style="text-align:center;margin-top:16px"><button onclick="window.print()">🖨️ Imprimir</button></div>
+  </body></html>`);
+  win.document.close();
+  win.print();
+  alert('✓ Cierre mensual registrado.');
+  await renderCierre();
 }
 
 async function renderCierre(){
@@ -2990,31 +3118,42 @@ async function renderCierre(){
       </div>`;
   }
 
-  const {data:cierres} = await supa.from('cierres_caja').select('*').order('fecha',{ascending:false}).limit(50);
+  const {data:cierres} = await supa.from('cierres_caja').select('*').order('fecha',{ascending:false}).limit(100);
+  const cierresDiarios   = cierres?.filter(c=>c.tipo==='diario')||[];
+  const cierresMensuales = cierres?.filter(c=>c.tipo==='mensual')||[];
 
-  const historialCierres = cierres?.length ? `
+  const filaCierre = c => {
+    const dif = Number(c.diferencia)||0;
+    return `<tr>
+      <td>${c.tipo==='mensual'?`<strong>${nombreMes(c.mes||c.fecha?.slice(0,7))}</strong>`:fmtFecha(c.fecha)}</td>
+      <td class="green">${fmt(c.total_ingresos)}</td>
+      <td class="red">${fmt(c.total_egresos)}</td>
+      <td style="font-weight:600">${fmt(c.balance_sistema)}</td>
+      <td>${fmt(c.efectivo_sistema)}</td>
+      <td>${fmt(c.efectivo_fisico)}</td>
+      <td style="font-weight:700;color:${dif===0?'var(--green)':dif>0?'var(--green)':'var(--red)'}">${dif===0?'✓ Cuadrado':dif>0?'+'+fmt(dif):'-'+fmt(Math.abs(dif))}</td>
+      <td style="font-size:12px;color:var(--text2)">${c.notas||'-'}</td>
+    </tr>`;
+  };
+
+  const tablaCierres = arr => arr.length
+    ? `<div class="table-wrap"><table><thead><tr><th>Período</th><th>Ingresos</th><th>Egresos</th><th>Balance</th><th>Ef. sistema</th><th>Ef. físico</th><th>Diferencia</th><th>Notas</th></tr></thead>
+       <tbody>${arr.map(filaCierre).join('')}</tbody></table></div>`
+    : '<p style="padding:16px;color:var(--text2);font-size:13px">Sin cierres registrados</p>';
+
+  const historialCierres = `
     <div class="card" style="padding:0;margin-top:28px">
       <div style="padding:14px 16px;font-weight:600;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px">
-        <i class="ti ti-lock"></i> Historial de cierres de caja
+        <i class="ti ti-calendar-month"></i> Cierres mensuales
       </div>
-      <div class="table-wrap"><table><thead><tr>
-        <th>Fecha</th><th>Ingresos</th><th>Egresos</th><th>Balance</th><th>Ef. sistema</th><th>Ef. físico</th><th>Diferencia</th><th>Notas</th>
-      </tr></thead><tbody>
-      ${cierres.map(c=>{
-        const dif = Number(c.diferencia)||0;
-        return `<tr>
-          <td>${fmtFecha(c.fecha)}</td>
-          <td class="green">${fmt(c.total_ingresos)}</td>
-          <td class="red">${fmt(c.total_egresos)}</td>
-          <td style="font-weight:600">${fmt(c.balance_sistema)}</td>
-          <td>${fmt(c.efectivo_sistema)}</td>
-          <td>${fmt(c.efectivo_fisico)}</td>
-          <td style="font-weight:700;color:${dif===0?'var(--green)':dif>0?'var(--green)':'var(--red)'}">${dif===0?'✓ Cuadrada':dif>0?'+'+fmt(dif):'-'+fmt(Math.abs(dif))}</td>
-          <td style="font-size:12px;color:var(--text2)">${c.notas||'-'}</td>
-        </tr>`;
-      }).join('')}
-      </tbody></table></div>
-    </div>` : '';
+      ${tablaCierres(cierresMensuales)}
+    </div>
+    <div class="card" style="padding:0;margin-top:16px">
+      <div style="padding:14px 16px;font-weight:600;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px">
+        <i class="ti ti-lock"></i> Cierres diarios
+      </div>
+      ${tablaCierres(cierresDiarios)}
+    </div>`;
 
   document.getElementById('content').innerHTML = `
   <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:20px">
@@ -3024,7 +3163,10 @@ async function renderCierre(){
         ${meses.map(m=>`<option value="${m}" ${m===mesSelec?'selected':''}>${nombreMes(m)}</option>`).join('')}
       </select>
     </div>
-    <button class="btn" onclick="imprimirCierre()" style="gap:6px"><i class="ti ti-printer"></i> Imprimir</button>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn" onclick="imprimirCierre()" style="gap:6px"><i class="ti ti-printer"></i> Imprimir</button>
+      <button class="btn" style="background:#111;color:#fff;font-weight:600" onclick="modalCierreMensual(document.getElementById('sel-mes').value)"><i class="ti ti-calendar-month"></i> Cerrar mes</button>
+    </div>
   </div>
   <div id="cierre-contenido">${renderMes(mesSelec)}</div>
   ${historialCierres}`;
