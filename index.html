@@ -2734,9 +2734,12 @@ async function renderCaja(){
     <div class="metric"><div class="metric-label">Egresos de hoy</div><div class="metric-value red">${fmt(egrHoy)}</div></div>
     <div class="metric"><div class="metric-label">Balance de hoy</div><div class="metric-value ${ingHoy-egrHoy>=0?'green':'red'}">${fmt(ingHoy-egrHoy)}</div></div>
   </div>
-  <div style="display:flex;justify-content:flex-end;margin-bottom:16px;gap:8px">
-    <button class="btn btn-primary" onclick="modalCaja('ingreso')"><i class="ti ti-arrow-down"></i> Ingreso</button>
-    <button class="btn btn-danger" onclick="modalCaja('egreso')"><i class="ti ti-arrow-up"></i> Egreso</button>
+  <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;margin-bottom:16px;gap:8px">
+    <button class="btn" style="background:var(--accent);color:#fff;font-weight:600" onclick="modalArqueoCaja()"><i class="ti ti-lock"></i> Cerrar caja</button>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-primary" onclick="modalCaja('ingreso')"><i class="ti ti-arrow-down"></i> Ingreso</button>
+      <button class="btn btn-danger" onclick="modalCaja('egreso')"><i class="ti ti-arrow-up"></i> Egreso</button>
+    </div>
   </div>
   <div class="card" style="padding:0">
   ${data?.length?`<div class="table-wrap"><table><thead><tr><th>Fecha</th><th>Tipo</th><th>Concepto</th><th>Categoría</th><th>Forma de pago</th><th>Monto</th><th></th></tr></thead><tbody>
@@ -2780,6 +2783,138 @@ async function eliminarCaja(id){
   if(!confirm('¿Eliminar este movimiento?'))return;
   await supa.from('caja').delete().eq('id',id);
   await renderCaja();
+}
+
+async function modalArqueoCaja(){
+  const {data} = await supa.from('caja').select('*').order('fecha',{ascending:false}).limit(500);
+  const hoyStr = hoy();
+  const hoyData = data?.filter(c=>c.fecha===hoyStr)||[];
+  const ingresos = hoyData.filter(c=>c.tipo==='ingreso');
+  const egresos  = hoyData.filter(c=>c.tipo==='egreso');
+  const totalIng = ingresos.reduce((a,b)=>a+Number(b.monto),0);
+  const totalEgr = egresos.reduce((a,b)=>a+Number(b.monto),0);
+  const balance  = totalIng - totalEgr;
+
+  // Efectivo del sistema (ingresos efectivo - egresos efectivo)
+  const ingEfectivo = ingresos.filter(c=>c.forma_pago==='efectivo').reduce((a,b)=>a+Number(b.monto),0);
+  const egrEfectivo = egresos.filter(c=>c.forma_pago==='efectivo').reduce((a,b)=>a+Number(b.monto),0);
+  const efectivoSistema = ingEfectivo - egrEfectivo;
+
+  // Agrupado por forma de pago (solo ingresos)
+  const formas = {};
+  ingresos.forEach(m=>{ const k=m.forma_pago||'sin especificar'; formas[k]=(formas[k]||0)+Number(m.monto); });
+  const filasFormas = Object.entries(formas).map(([k,v])=>
+    `<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:13px">
+      <span style="text-transform:capitalize">${k}</span>
+      <span style="font-weight:600;color:var(--green)">${fmt(v)}</span>
+    </div>`).join('') || '<p style="font-size:13px;color:var(--text2)">Sin ingresos hoy</p>';
+
+  window._arqueoData = {hoyStr, totalIng, totalEgr, balance, efectivoSistema, formas};
+
+  abrirModal(`
+    <div class="modal-title">
+      <span><i class="ti ti-lock"></i> Cierre de caja — ${fmtFecha(hoyStr)}</span>
+      <button class="btn btn-sm" onclick="cerrarModal()"><i class="ti ti-x"></i></button>
+    </div>
+
+    <div class="grid3" style="margin-bottom:16px">
+      <div class="metric"><div class="metric-label">Ingresos del día</div><div class="metric-value green">${fmt(totalIng)}</div></div>
+      <div class="metric"><div class="metric-label">Egresos del día</div><div class="metric-value red">${fmt(totalEgr)}</div></div>
+      <div class="metric"><div class="metric-label">Balance sistema</div><div class="metric-value ${balance>=0?'green':'red'}">${fmt(balance)}</div></div>
+    </div>
+
+    <div class="card" style="margin-bottom:16px;padding:12px 16px">
+      <div style="font-weight:600;margin-bottom:8px">Ingresos por forma de pago</div>
+      ${filasFormas}
+    </div>
+
+    <div class="card" style="margin-bottom:16px;padding:12px 16px;background:var(--bg2)">
+      <div style="font-weight:600;margin-bottom:4px">Efectivo esperado en caja</div>
+      <div style="font-size:22px;font-weight:700;color:var(--text)">${fmt(efectivoSistema)}</div>
+      <div style="font-size:12px;color:var(--text2);margin-top:2px">Ingresos efectivo menos egresos efectivo</div>
+    </div>
+
+    <div style="margin-bottom:16px">
+      <label style="font-weight:600">Efectivo contado físicamente *</label>
+      <input type="number" id="arq-fisico" placeholder="0" oninput="
+        const s=${efectivoSistema};
+        const f=Number(this.value)||0;
+        const d=f-s;
+        document.getElementById('arq-dif').textContent=fmt(d);
+        document.getElementById('arq-dif').style.color=d===0?'var(--text)':d>0?'var(--green)':'var(--red)';
+        document.getElementById('arq-estado').textContent=d===0?'✓ Caja cuadrada':d>0?'Sobrante':'Faltante';
+      " style="font-size:18px;font-weight:700;padding:12px">
+    </div>
+
+    <div class="card" style="margin-bottom:16px;padding:12px 16px;display:flex;justify-content:space-between;align-items:center">
+      <span id="arq-estado" style="font-weight:600;color:var(--text2)">Ingresá el efectivo físico</span>
+      <span id="arq-dif" style="font-size:20px;font-weight:700">—</span>
+    </div>
+
+    <div style="margin-bottom:16px">
+      <label>Notas del cierre</label>
+      <input id="arq-notas" placeholder="Observaciones opcionales...">
+    </div>
+
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn" onclick="cerrarModal()">Cancelar</button>
+      <button class="btn" style="background:var(--accent);color:#fff;font-weight:600" onclick="confirmarCierreCaja()">
+        <i class="ti ti-lock"></i> Confirmar cierre
+      </button>
+    </div>`);
+}
+
+async function confirmarCierreCaja(){
+  const d = window._arqueoData;
+  if(!d) return;
+  const fisico = Number(document.getElementById('arq-fisico').value)||0;
+  const notas  = document.getElementById('arq-notas').value.trim();
+  const diferencia = fisico - d.efectivoSistema;
+
+  const {error} = await supa.from('cierres_caja').insert({
+    fecha: d.hoyStr,
+    total_ingresos: d.totalIng,
+    total_egresos: d.totalEgr,
+    balance_sistema: d.balance,
+    efectivo_sistema: d.efectivoSistema,
+    efectivo_fisico: fisico,
+    diferencia,
+    detalle_formas: JSON.stringify(d.formas),
+    notas: notas||null
+  });
+
+  if(error){ alert('Error al guardar el cierre: ' + error.message); return; }
+
+  cerrarModal();
+  // Imprimir comprobante
+  const win = window.open('','_blank');
+  const linFormas = Object.entries(d.formas).map(([k,v])=>`<tr><td style="text-transform:capitalize">${k}</td><td style="text-align:right;color:green;font-weight:600">${fmt(v)}</td></tr>`).join('');
+  win.document.write(`<html><head><title>Cierre de caja</title>
+  <style>body{font-family:sans-serif;max-width:360px;margin:0 auto;padding:16px} h2{text-align:center;margin-bottom:4px} .sub{text-align:center;color:#666;font-size:13px;margin-bottom:16px} table{width:100%;border-collapse:collapse;margin-bottom:12px} td{padding:5px 4px;font-size:13px;border-bottom:1px solid #eee} .total{font-size:15px;font-weight:700} .dif{font-size:18px;font-weight:700;text-align:center;padding:10px;margin:12px 0;border-radius:6px} @media print{button{display:none}}</style>
+  </head><body>
+  <h2>Cuarta Marcha</h2>
+  <div class="sub">Cierre de caja — ${fmtFecha(d.hoyStr)}</div>
+  <table>
+    <tr><td>Ingresos del día</td><td style="text-align:right;color:green;font-weight:600">${fmt(d.totalIng)}</td></tr>
+    <tr><td>Egresos del día</td><td style="text-align:right;color:red;font-weight:600">${fmt(d.totalEgr)}</td></tr>
+    <tr><td class="total">Balance sistema</td><td style="text-align:right;font-weight:700">${fmt(d.balance)}</td></tr>
+  </table>
+  <div style="font-weight:600;margin-bottom:4px">Por forma de pago:</div>
+  <table>${linFormas}</table>
+  <div style="font-weight:600;margin-bottom:4px">Arqueo de efectivo:</div>
+  <table>
+    <tr><td>Efectivo sistema</td><td style="text-align:right">${fmt(d.efectivoSistema)}</td></tr>
+    <tr><td>Efectivo físico</td><td style="text-align:right">${fmt(fisico)}</td></tr>
+  </table>
+  <div class="dif" style="background:${diferencia===0?'#dcfce7':diferencia>0?'#dcfce7':'#fee2e2'};color:${diferencia===0?'#166534':diferencia>0?'#166534':'#991b1b'}">
+    ${diferencia===0?'✓ Caja cuadrada':diferencia>0?`Sobrante: ${fmt(diferencia)}`:`Faltante: ${fmt(Math.abs(diferencia))}`}
+  </div>
+  ${notas?`<div style="font-size:12px;color:#666;border-top:1px solid #eee;padding-top:8px">Notas: ${notas}</div>`:''}
+  <div style="text-align:center;margin-top:16px"><button onclick="window.print()">🖨️ Imprimir</button></div>
+  </body></html>`);
+  win.document.close();
+  win.print();
+  alert('✓ Cierre registrado correctamente.');
 }
 
 async function renderCierre(){
@@ -2853,6 +2988,32 @@ async function renderCierre(){
       </div>`;
   }
 
+  const {data:cierres} = await supa.from('cierres_caja').select('*').order('fecha',{ascending:false}).limit(50);
+
+  const historialCierres = cierres?.length ? `
+    <div class="card" style="padding:0;margin-top:28px">
+      <div style="padding:14px 16px;font-weight:600;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px">
+        <i class="ti ti-lock"></i> Historial de cierres de caja
+      </div>
+      <div class="table-wrap"><table><thead><tr>
+        <th>Fecha</th><th>Ingresos</th><th>Egresos</th><th>Balance</th><th>Ef. sistema</th><th>Ef. físico</th><th>Diferencia</th><th>Notas</th>
+      </tr></thead><tbody>
+      ${cierres.map(c=>{
+        const dif = Number(c.diferencia)||0;
+        return `<tr>
+          <td>${fmtFecha(c.fecha)}</td>
+          <td class="green">${fmt(c.total_ingresos)}</td>
+          <td class="red">${fmt(c.total_egresos)}</td>
+          <td style="font-weight:600">${fmt(c.balance_sistema)}</td>
+          <td>${fmt(c.efectivo_sistema)}</td>
+          <td>${fmt(c.efectivo_fisico)}</td>
+          <td style="font-weight:700;color:${dif===0?'var(--green)':dif>0?'var(--green)':'var(--red)'}">${dif===0?'✓ Cuadrada':dif>0?'+'+fmt(dif):'-'+fmt(Math.abs(dif))}</td>
+          <td style="font-size:12px;color:var(--text2)">${c.notas||'-'}</td>
+        </tr>`;
+      }).join('')}
+      </tbody></table></div>
+    </div>` : '';
+
   document.getElementById('content').innerHTML = `
   <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:20px">
     <div style="display:flex;align-items:center;gap:12px">
@@ -2863,7 +3024,8 @@ async function renderCierre(){
     </div>
     <button class="btn" onclick="imprimirCierre()" style="gap:6px"><i class="ti ti-printer"></i> Imprimir</button>
   </div>
-  <div id="cierre-contenido">${renderMes(mesSelec)}</div>`;
+  <div id="cierre-contenido">${renderMes(mesSelec)}</div>
+  ${historialCierres}`;
   window._renderMesCierre = renderMes;
 }
 
