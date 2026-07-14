@@ -1839,9 +1839,8 @@ function filtrarVehsTurno(cliId, selId){
 }
 
 async function guardarTurno(id){
-  const cliSel = document.getElementById('f-cli-t');
-  const cliId = cliSel.value||null;
-  const cliNombreRegistrado = cliSel.options[cliSel.selectedIndex]?.dataset?.nombre||'';
+  const cliId = document.getElementById('f-cli-t')?.value||null;
+  const cliNombreRegistrado = document.getElementById('f-cli-t-texto')?.value?.trim()||'';
   const cliNombreLibre = document.getElementById('f-nombre-libre-t')?.value?.trim()||'';
   const cliNombre = cliId ? cliNombreRegistrado : cliNombreLibre;
 
