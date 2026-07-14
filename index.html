@@ -740,7 +740,16 @@ async function guardarVehiculoYVolverFicha(cliId){
 async function modalVehiculo(id){
   const {data:cls} = await supa.from('clientes').select('id,nombre,apellido').order('nombre');
   window._clientesGlobal = cls||[];
-  const v = id?(window._vehiculos||[]).find(x=>x.id===id):{};
+  let v = {};
+  if(id){
+    const encontrado = (window._vehiculos||[]).find(x=>x.id===id);
+    if(encontrado){
+      v = encontrado;
+    } else {
+      const {data:vData} = await supa.from('vehiculos').select('*').eq('id',id).single();
+      v = vData||{};
+    }
+  }
   const cliPre = cls?.find(c=>c.id===v?.cliente_id);
   const nombrePre = cliPre ? (cliPre.apellido+', '+cliPre.nombre) : '';
   abrirModal(`
@@ -1287,16 +1296,26 @@ async function guardarOrden(id){
   cerrarModal();
   await renderOrdenes();
   // Si se entrega la orden, preguntar si abona
-  if(estadoFinal==='entregado' && cliId && totalGeneral>0){
+  if(estadoFinal==='entregado' && cliId){
     const {data:ord} = await supa.from('ordenes').select('numero').eq('id',ordenId).single();
-    const cliNombre = `${cls?.nombre||''} ${cls?.apellido||''}`.trim();
-    // Guardar datos en variable global para evitar problemas con caracteres especiales en onclick
+    const {data:cliData} = await supa.from('clientes').select('nombre,apellido,telefono').eq('id',cliId).single();
+    const cliNombre = `${cliData?.nombre||cls?.nombre||''} ${cliData?.apellido||cls?.apellido||''}`.trim();
+    const tel = (cliData?.telefono||'').replace(/\D/g,'');
+    const numOrden = ord?.numero||'';
+    const vehInfo = [data?.vehiculo_patente, data?.vehiculo_marca, data?.vehiculo_modelo].filter(Boolean).join(' ');
+    const msgWA = `Hola ${cliData?.nombre||cliNombre.split(' ')[0]}! 👋 Te avisamos desde *Cuarta Marcha Taller Mecánico* que tu vehículo${vehInfo?' ('+vehInfo+')':''} ya está listo para retirar 🔧✅\n\nOrden #${numOrden}${totalGeneral>0?' — Total: '+fmt(totalGeneral):''}\n\nAnte cualquier consulta no dudes en comunicarte.\nTel: 351-344-3965`;
+    const waUrl = tel ? `https://wa.me/54${tel.replace(/^0/,'')}?text=${encodeURIComponent(msgWA)}` : '';
     window._pagoOrden = {ordenId, cliId, cliNombre, total: totalGeneral};
     abrirModal(`
       <div class="modal-title"><span><i class="ti ti-circle-check" style="color:#1a7a3a"></i> Orden entregada</span><button class="btn btn-sm" onclick="cerrarModal()"><i class="ti ti-x"></i></button></div>
-      <p style="margin-bottom:6px">Orden <strong>#${ord?.numero||''}</strong> · Cliente: <strong>${cliNombre}</strong></p>
-      <p style="color:var(--text2);font-size:13px;margin-bottom:20px">Total de la orden: <strong style="font-size:16px;color:var(--text)">${fmt(totalGeneral)}</strong></p>
-      <p style="font-weight:600;margin-bottom:12px">¿El cliente abona ahora?</p>
+      <p style="margin-bottom:6px">Orden <strong>#${numOrden}</strong> · Cliente: <strong>${cliNombre}</strong></p>
+      <p style="color:var(--text2);font-size:13px;margin-bottom:16px">Total de la orden: <strong style="font-size:16px;color:var(--text)">${fmt(totalGeneral)}</strong></p>
+
+      ${waUrl ? `<a href="${waUrl}" target="_blank" class="btn" style="width:100%;background:#25D366;color:#fff;justify-content:center;padding:13px;margin-bottom:16px;font-weight:600">
+        <i class="ti ti-brand-whatsapp" style="font-size:20px"></i> Avisar al cliente por WhatsApp
+      </a>` : `<div style="background:var(--bg2);border-radius:8px;padding:10px 14px;font-size:13px;color:var(--text2);margin-bottom:16px">⚠️ El cliente no tiene teléfono cargado</div>`}
+
+      ${totalGeneral>0 ? `<p style="font-weight:600;margin-bottom:12px">¿El cliente abona ahora?</p>
       <div style="display:flex;flex-direction:column;gap:10px">
         <button class="btn btn-primary" style="justify-content:flex-start;padding:14px 16px" onclick="const p=window._pagoOrden;modalConfirmarPago(p.ordenId,p.cliId,p.cliNombre,p.total,p.total,'completo')">
           <i class="ti ti-circle-check" style="font-size:20px"></i>
@@ -1310,7 +1329,7 @@ async function guardarOrden(id){
           <i class="ti ti-clock" style="font-size:20px"></i>
           <div style="text-align:left"><div style="font-weight:600">No abona ahora</div><div style="font-size:12px;color:var(--text2)">Queda pendiente en cuenta corriente</div></div>
         </button>
-      </div>`);
+      </div>` : `<button class="btn" onclick="cerrarModal()" style="width:100%;justify-content:center">Cerrar</button>`}`);
   }
 }
 
@@ -2719,7 +2738,20 @@ async function modalMovimiento(cliIdPre){
 async function guardarMovimiento(){
   const data={cliente_id:document.getElementById('fm-cli').value,tipo:document.getElementById('fm-tipo').value,monto:Number(document.getElementById('fm-monto').value)||0,concepto:document.getElementById('fm-concepto').value.trim(),fecha:document.getElementById('fm-fecha').value,saldo:0};
   if(!data.cliente_id||!data.monto||!data.concepto){alert('Completá todos los campos');return;}
-  await supa.from('cuenta_corriente').insert(data);
+  const {error} = await supa.from('cuenta_corriente').insert(data);
+  if(error){alert('Error al guardar: '+error.message);return;}
+  // Registrar también en caja: crédito = el cliente paga (ingreso), débito = sale dinero (egreso)
+  const tipoCaja = data.tipo==='credito' ? 'ingreso' : 'egreso';
+  const {data:cli} = await supa.from('clientes').select('nombre,apellido').eq('id',data.cliente_id).single();
+  const cliLabel = cli ? `${cli.nombre} ${cli.apellido}` : '';
+  await supa.from('caja').insert({
+    tipo: tipoCaja,
+    monto: data.monto,
+    concepto: data.concepto + (cliLabel ? ` — ${cliLabel}` : ''),
+    fecha: data.fecha,
+    forma_pago: 'efectivo',
+    cliente_id: data.cliente_id
+  });
   cerrarModal(); await renderCuentas();
 }
 
