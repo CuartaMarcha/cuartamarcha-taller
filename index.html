@@ -3186,6 +3186,13 @@ async function cargarDatosArqueoMensual(mes){
     </div>`;
 }
 
+async function eliminarCierreMensual(id){
+  if(!confirm('¿Eliminar este cierre mensual? Esta acción no se puede deshacer.')) return;
+  const {error} = await supa.from('cierres_caja').delete().eq('id',id);
+  if(error){ alert('Error al eliminar: '+error.message); return; }
+  await renderCierre();
+}
+
 async function confirmarCierreMensual(){
   const d = window._arqueoMensualData;
   if(!d) return;
@@ -3266,32 +3273,21 @@ async function renderCierre(){
         </div>
       </div>
       ${Object.keys(fPago).length ? `
-      <div class="card" style="margin-bottom:20px">
+      <div class="card">
         <div class="seccion-title">Ingresos por forma de pago</div>
         <div style="display:flex;flex-wrap:wrap;gap:12px;margin-top:8px">
           ${Object.entries(fPago).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`<div style="background:var(--bg2);border-radius:8px;padding:10px 16px;min-width:120px"><div style="font-size:12px;color:var(--text2);text-transform:capitalize">${k}</div><div style="font-weight:700;color:var(--green);font-size:15px">${fmt(v)}</div></div>`).join('')}
         </div>
-      </div>` : ''}
-      <div class="card" style="padding:0;margin-bottom:20px">
-        <div style="padding:14px 16px;font-weight:600;border-bottom:1px solid var(--border)">Detalle de ingresos</div>
-        <div class="table-wrap"><table><thead><tr><th>Fecha</th><th>Concepto</th><th>Categoría</th><th>Forma de pago</th><th>Monto</th></tr></thead>
-        <tbody>${rowMovs(ingresos,'green')}</tbody></table></div>
-      </div>
-      <div class="card" style="padding:0">
-        <div style="padding:14px 16px;font-weight:600;border-bottom:1px solid var(--border)">Detalle de egresos</div>
-        <div class="table-wrap"><table><thead><tr><th>Fecha</th><th>Concepto</th><th>Categoría</th><th>Forma de pago</th><th>Monto</th></tr></thead>
-        <tbody>${rowMovs(egresos,'red')}</tbody></table></div>
-      </div>`;
+      </div>` : ''}`;
   }
 
-  const {data:cierres} = await supa.from('cierres_caja').select('*').order('fecha',{ascending:false}).limit(100);
-  const cierresDiarios   = cierres?.filter(c=>c.tipo==='diario')||[];
-  const cierresMensuales = cierres?.filter(c=>c.tipo==='mensual')||[];
+  const {data:cierres} = await supa.from('cierres_caja').select('*').order('fecha',{ascending:false}).limit(500);
+  window._todosCierres = cierres||[];
 
-  const filaCierre = c => {
+  const filaCierreMensual = c => {
     const dif = Number(c.diferencia)||0;
     return `<tr>
-      <td>${c.tipo==='mensual'?`<strong>${nombreMes(c.mes||c.fecha?.slice(0,7))}</strong>`:fmtFecha(c.fecha)}</td>
+      <td><strong>${nombreMes(c.mes||c.fecha?.slice(0,7))}</strong><br><span style="font-size:11px;color:var(--text2)">Registrado ${fmtFecha(c.fecha)}</span></td>
       <td class="green">${fmt(c.total_ingresos)}</td>
       <td class="red">${fmt(c.total_egresos)}</td>
       <td style="font-weight:600">${fmt(c.balance_sistema)}</td>
@@ -3299,33 +3295,36 @@ async function renderCierre(){
       <td>${fmt(c.efectivo_fisico)}</td>
       <td style="font-weight:700;color:${dif===0?'var(--green)':dif>0?'var(--green)':'var(--red)'}">${dif===0?'✓ Cuadrado':dif>0?'+'+fmt(dif):'-'+fmt(Math.abs(dif))}</td>
       <td style="font-size:12px;color:var(--text2)">${c.notas||'-'}</td>
+      <td><button class="btn btn-sm btn-danger" onclick="eliminarCierreMensual('${c.id}')"><i class="ti ti-trash"></i></button></td>
     </tr>`;
   };
 
-  const tablaCierres = arr => arr.length
-    ? `<div class="table-wrap"><table><thead><tr><th>Período</th><th>Ingresos</th><th>Egresos</th><th>Balance</th><th>Ef. sistema</th><th>Ef. físico</th><th>Diferencia</th><th>Notas</th></tr></thead>
-       <tbody>${arr.map(filaCierre).join('')}</tbody></table></div>`
-    : '<p style="padding:16px;color:var(--text2);font-size:13px">Sin cierres registrados</p>';
+  function renderHistorial(mes){
+    const mensuales = (window._todosCierres||[]).filter(c=>c.tipo==='mensual' && (c.mes||c.fecha?.slice(0,7))===mes);
+    const tabla = mensuales.length
+      ? `<div class="table-wrap"><table><thead><tr><th>Período</th><th>Ingresos</th><th>Egresos</th><th>Balance</th><th>Ef. sistema</th><th>Ef. físico</th><th>Diferencia</th><th>Notas</th><th></th></tr></thead>
+         <tbody>${mensuales.map(filaCierreMensual).join('')}</tbody></table></div>`
+      : '<p style="padding:16px;color:var(--text2);font-size:13px">Sin cierres mensuales registrados para este mes</p>';
+    return `
+      <div class="card" style="padding:0;margin-top:28px">
+        <div style="padding:14px 16px;font-weight:600;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px">
+          <i class="ti ti-calendar-month"></i> Cierres mensuales registrados — ${nombreMes(mes)}
+        </div>
+        ${tabla}
+      </div>`;
+  }
 
-  const historialCierres = `
-    <div class="card" style="padding:0;margin-top:28px">
-      <div style="padding:14px 16px;font-weight:600;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px">
-        <i class="ti ti-calendar-month"></i> Cierres mensuales
-      </div>
-      ${tablaCierres(cierresMensuales)}
-    </div>
-    <div class="card" style="padding:0;margin-top:16px">
-      <div style="padding:14px 16px;font-weight:600;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px">
-        <i class="ti ti-lock"></i> Cierres diarios
-      </div>
-      ${tablaCierres(cierresDiarios)}
-    </div>`;
+  window._renderHistorialCierre = renderHistorial;
 
   document.getElementById('content').innerHTML = `
   <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:20px">
     <div style="display:flex;align-items:center;gap:12px">
       <div class="seccion-title" style="margin:0">Mes:</div>
-      <select id="sel-mes" onchange="document.getElementById('cierre-contenido').innerHTML=window._renderMesCierre(this.value)" style="min-width:180px">
+      <select id="sel-mes" onchange="
+        const m=this.value;
+        document.getElementById('cierre-contenido').innerHTML=window._renderMesCierre(m);
+        document.getElementById('cierre-historial').innerHTML=window._renderHistorialCierre(m);
+      " style="min-width:180px">
         ${meses.map(m=>`<option value="${m}" ${m===mesSelec?'selected':''}>${nombreMes(m)}</option>`).join('')}
       </select>
     </div>
@@ -3335,7 +3334,7 @@ async function renderCierre(){
     </div>
   </div>
   <div id="cierre-contenido">${renderMes(mesSelec)}</div>
-  ${historialCierres}`;
+  <div id="cierre-historial">${renderHistorial(mesSelec)}</div>`;
   window._renderMesCierre = renderMes;
 }
 
