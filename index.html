@@ -620,11 +620,12 @@ function renderFichaSecciones(cliId, ords, pres, movs, mes){
   return `
   <div class="card" style="margin-bottom:16px">
     <div class="seccion-title" style="margin-bottom:12px"><i class="ti ti-file-text"></i> Órdenes de trabajo${mes?' — '+nombreMesFichaFmt(mes):''}</div>
-    ${ordsFilt.length?`<div class="table-wrap"><table><thead><tr><th>#</th><th>Fecha</th><th>Vehículo</th><th>Estado</th><th>Total</th></tr></thead><tbody>
+    ${ordsFilt.length?`<div class="table-wrap"><table><thead><tr><th>#</th><th>Fecha</th><th>Vehículo</th><th>Estado</th><th>Total</th><th></th></tr></thead><tbody>
     ${ordsFilt.map(o=>`<tr>
       <td><strong>#${o.numero}</strong></td><td>${fmtFecha(o.fecha_ingreso)}</td>
       <td>${o.vehiculo_patente||''} ${o.vehiculo_marca||''} ${o.vehiculo_modelo||''}</td>
       <td>${badgeEstado(o.estado)}</td><td><strong>${fmt(o.total)}</strong></td>
+      <td><button class="btn btn-sm" onclick="modalOrden('${o.id}')"><i class="ti ti-eye"></i> Ver</button></td>
     </tr>`).join('')}</tbody></table></div>`:'<p style="font-size:13px;color:var(--text2)">Sin órdenes'+(mes?' en este mes':'')+`</p>`}
   </div>
   <div class="card" style="margin-bottom:16px">
@@ -735,11 +736,71 @@ async function renderVehiculos(){
   ${data?.length?`<div class="table-wrap"><table><thead><tr><th>Patente</th><th>Marca / Modelo</th><th>Año</th><th>Color</th><th>Cliente</th><th>KM</th><th></th></tr></thead><tbody>
   ${data.map(v=>`<tr><td><strong>${v.patente}</strong></td><td>${v.marca} ${v.modelo}</td><td>${v.anio||'-'}</td><td>${v.color||'-'}</td><td>${v.clientes?.nombre||''} ${v.clientes?.apellido||''}</td><td>${v.kilometraje||'-'}</td>
     <td style="display:flex;gap:4px">
+      <button class="btn btn-sm" onclick="fichaVehiculo('${v.id}')"><i class="ti ti-eye"></i> Ver</button>
       <button class="btn btn-sm" onclick="modalVehiculo('${v.id}')"><i class="ti ti-edit"></i></button>
       <button class="btn btn-sm btn-danger" onclick="eliminarVehiculo('${v.id}')"><i class="ti ti-trash"></i></button>
     </td></tr>`).join('')}</tbody></table></div>`:'<div class="empty"><i class="ti ti-car"></i><p>No hay vehículos</p></div>'}
   </div>`;
   window._vehiculos = data||[];
+}
+
+async function fichaVehiculo(vehId){
+  const [{data:v},{data:ords},{data:pres}] = await Promise.all([
+    supa.from('vehiculos').select('*, clientes(id,nombre,apellido,telefono)').eq('id',vehId).single(),
+    supa.from('ordenes').select('*').eq('vehiculo_id',vehId).order('fecha_ingreso',{ascending:false}),
+    supa.from('presupuestos').select('*').eq('vehiculo_id',vehId).order('fecha',{ascending:false})
+  ]);
+  if(!v){ alert('Vehículo no encontrado'); return; }
+  const cli = v.clientes;
+  const totalGastado = (ords||[]).reduce((a,o)=>a+Number(o.total||0),0);
+  document.getElementById('content').innerHTML = `
+  <div class="card" style="margin-bottom:16px">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+      <div style="display:flex;align-items:center;gap:14px">
+        <div style="width:48px;height:48px;border-radius:50%;background:var(--bg2);display:flex;align-items:center;justify-content:center;font-size:22px">
+          <i class="ti ti-car" style="color:var(--primary)"></i>
+        </div>
+        <div>
+          <div style="font-size:20px;font-weight:700">${v.patente}</div>
+          <div style="font-size:14px;color:var(--text2);margin-top:2px">${v.marca||''} ${v.modelo||''} ${v.anio?'· '+v.anio:''} ${v.color?'· '+v.color:''}</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn" onclick="renderVehiculos()"><i class="ti ti-arrow-left"></i> Volver</button>
+        ${cli?`<button class="btn" onclick="fichaCliente('${cli.id}')"><i class="ti ti-user"></i> Ver cliente</button>`:''}
+        <button class="btn btn-primary" onclick="modalVehiculo('${vehId}')"><i class="ti ti-edit"></i> Editar</button>
+      </div>
+    </div>
+  </div>
+  <div class="grid4" style="margin-bottom:16px">
+    <div class="metric"><div class="metric-label">Cliente</div><div class="metric-value" style="font-size:16px">${cli?cli.nombre+' '+cli.apellido:'-'}</div></div>
+    <div class="metric"><div class="metric-label">Total órdenes</div><div class="metric-value blue">${ords?.length||0}</div></div>
+    <div class="metric"><div class="metric-label">Total gastado</div><div class="metric-value green">${fmt(totalGastado)}</div></div>
+    <div class="metric"><div class="metric-label">Kilometraje</div><div class="metric-value" style="font-size:16px">${v.kilometraje?v.kilometraje+' km':'-'}</div></div>
+  </div>
+  <div class="card" style="margin-bottom:16px">
+    <div class="seccion-title" style="margin-bottom:12px"><i class="ti ti-file-text"></i> Órdenes de trabajo</div>
+    ${ords?.length?`<div class="table-wrap"><table><thead><tr><th>#</th><th>Fecha</th><th>Estado</th><th>Total</th><th></th></tr></thead><tbody>
+    ${ords.map(o=>`<tr>
+      <td><strong>#${o.numero}</strong></td>
+      <td>${fmtFecha(o.fecha_ingreso)}</td>
+      <td>${badgeEstado(o.estado)}</td>
+      <td><strong>${fmt(o.total)}</strong></td>
+      <td><button class="btn btn-sm" onclick="modalOrden('${o.id}')"><i class="ti ti-eye"></i> Ver</button></td>
+    </tr>`).join('')}</tbody></table></div>`:'<p style="font-size:13px;color:var(--text2)">Sin órdenes registradas</p>'}
+  </div>
+  <div class="card">
+    <div class="seccion-title" style="margin-bottom:12px"><i class="ti ti-calculator"></i> Presupuestos</div>
+    ${pres?.length?`<div class="table-wrap"><table><thead><tr><th>#</th><th>Fecha</th><th>Estado</th><th>Total</th><th></th></tr></thead><tbody>
+    ${pres.map(p=>{const eb=p.estado==='aprobado'?'badge-green':p.estado==='rechazado'?'badge-red':'badge-amber';
+    return `<tr>
+      <td><strong>#${p.numero}</strong></td>
+      <td>${fmtFecha(p.fecha)}</td>
+      <td><span class="badge ${eb}">${p.estado}</span></td>
+      <td><strong>${fmt(p.total)}</strong></td>
+      <td><button class="btn btn-sm" onclick="verPresupuesto('${p.id}')"><i class="ti ti-eye"></i> Ver</button></td>
+    </tr>`;}).join('')}</tbody></table></div>`:'<p style="font-size:13px;color:var(--text2)">Sin presupuestos</p>'}
+  </div>`;
 }
 
 async function modalVehiculoParaCliente(cliId){
