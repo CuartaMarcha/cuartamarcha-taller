@@ -800,25 +800,47 @@ function renderTablaOrdenes(data){
 function filtrarOrdenes(filtro, btn){
   document.querySelectorAll('.filtro-orden').forEach(b=>b.style.background=b.style.color='');
   btn.style.background='var(--primary)'; btn.style.color='#fff';
+  window._filtroOrdenEstado = filtro;
+  aplicarFiltrosOrdenes();
+}
+
+function aplicarFiltrosOrdenes(){
   const todos = window._ordenes||[];
+  const filtro = window._filtroOrdenEstado||'todas';
   const mapa = {urgentes:'urgente',proceso:'en_proceso',listas:'listo',entregadas:'entregado'};
-  const filtrado = filtro==='todas' ? todos : todos.filter(o=>o.estado===mapa[filtro]);
-  document.getElementById('tabla-ordenes').innerHTML = renderTablaOrdenes(filtrado);
+  const q = (document.getElementById('ord-buscar')?.value||'').toLowerCase().trim();
+  let lista = filtro==='todas' ? todos : todos.filter(o=>o.estado===mapa[filtro]);
+  if(q) lista = lista.filter(o=>
+    (o.cliente_nombre||'').toLowerCase().includes(q)
+    ||String(o.numero).includes(q)
+    ||(o.vehiculo_patente||'').toLowerCase().includes(q)
+    ||(o.vehiculo_marca||'').toLowerCase().includes(q)
+    ||(o.vehiculo_modelo||'').toLowerCase().includes(q)
+    ||(o.mecanico||'').toLowerCase().includes(q)
+    ||(o.fecha_ingreso||'').includes(q)
+  );
+  document.getElementById('tabla-ordenes').innerHTML = renderTablaOrdenes(lista);
 }
 
 async function renderOrdenes(){
   const {data} = await supa.from('ordenes').select('*').order('created_at',{ascending:false});
   window._ordenes = data||[];
   document.getElementById('content').innerHTML = `
-  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px">
-    <div style="display:flex;gap:6px;flex-wrap:wrap">
-      <button class="btn btn-sm filtro-orden" style="background:var(--primary);color:#fff" onclick="filtrarOrdenes('todas',this)">Todas</button>
-      <button class="btn btn-sm filtro-orden" onclick="filtrarOrdenes('urgentes',this)">Urgentes</button>
-      <button class="btn btn-sm filtro-orden" onclick="filtrarOrdenes('proceso',this)">En proceso</button>
-      <button class="btn btn-sm filtro-orden" onclick="filtrarOrdenes('listas',this)">Listas</button>
-      <button class="btn btn-sm filtro-orden" onclick="filtrarOrdenes('entregadas',this)">Entregadas</button>
+  <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px">
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        <button class="btn btn-sm filtro-orden" style="background:var(--primary);color:#fff" onclick="filtrarOrdenes('todas',this)">Todas</button>
+        <button class="btn btn-sm filtro-orden" onclick="filtrarOrdenes('urgentes',this)">Urgentes</button>
+        <button class="btn btn-sm filtro-orden" onclick="filtrarOrdenes('proceso',this)">En proceso</button>
+        <button class="btn btn-sm filtro-orden" onclick="filtrarOrdenes('listas',this)">Listas</button>
+        <button class="btn btn-sm filtro-orden" onclick="filtrarOrdenes('entregadas',this)">Entregadas</button>
+      </div>
+      <button class="btn btn-primary" onclick="modalOrden()"><i class="ti ti-plus"></i> Nueva orden</button>
     </div>
-    <button class="btn btn-primary" onclick="modalOrden()"><i class="ti ti-plus"></i> Nueva orden</button>
+    <div style="position:relative">
+      <i class="ti ti-search" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--text2)"></i>
+      <input id="ord-buscar" placeholder="Buscar por cliente, patente, mecánico, N° o fecha..." style="padding-left:34px;width:100%;box-sizing:border-box" oninput="aplicarFiltrosOrdenes()">
+    </div>
   </div>
   <div class="card" style="padding:0" id="tabla-ordenes">${renderTablaOrdenes(data)}</div>`;
 }
