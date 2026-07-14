@@ -1756,7 +1756,7 @@ async function renderTurnos(){
 
 async function modalTurno(id){
   const [{data:cls},{data:vehs}] = await Promise.all([
-    supa.from('clientes').select('id,nombre,apellido').order('nombre'),
+    supa.from('clientes').select('id,nombre,apellido,telefono').order('nombre'),
     supa.from('vehiculos').select('id,patente,marca,modelo,cliente_id').order('patente')
   ]);
   window._vehsTurno = vehs||[];
@@ -3016,7 +3016,13 @@ function seleccionarClienteGenerico(id, valor, nombre){
   if(lista) lista.style.display='none';
   // Disparar callbacks según el id
   if(id==='f-cli') filtrarVehsOrden(valor);
-  if(id==='f-cli-t') { toggleClienteLibre(); filtrarVehsTurno(); }
+  if(id==='f-cli-t') {
+    toggleClienteLibre();
+    filtrarVehsTurno(valor);
+    // auto-llenar teléfono si el cliente lo tiene
+    const cliTel = (window._clientesGlobal||[]).find(c=>c.id===valor);
+    if(cliTel?.telefono){ const tel=document.getElementById('f-tel-t'); if(tel) tel.value=cliTel.telefono; }
+  }
   if(id==='fp-cli') { filtrarVehsPres(); toggleClientePres(); }
   if(id==='f-cliente-id') {} // sin callback
   if(id==='fm-cli') {} // sin callback
