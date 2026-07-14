@@ -1486,6 +1486,7 @@ async function registrarPagoOrden(ordenId, cliId, cliNombre, totalOrden, montoPa
   const {data:ord} = await supa.from('ordenes').select('numero').eq('id',ordenId).single();
   const num = ord?.numero||'';
   if(tipo==='completo'){
+    // Pago total: borramos la deuda, no agregamos crédito (saldo queda en 0)
     await supa.from('cuenta_corriente').delete().ilike('concepto',`%[ORD:${ordenId}]%`).eq('cliente_id',cliId);
     const {data:ordData} = await supa.from('ordenes').select('observaciones').eq('id',ordenId).single();
     const presMatch = (ordData?.observaciones||'').match(/presupuesto #(\d+)/i);
@@ -1493,12 +1494,14 @@ async function registrarPagoOrden(ordenId, cliId, cliNombre, totalOrden, montoPa
       const {data:pres} = await supa.from('presupuestos').select('id').eq('numero',presMatch[1]).maybeSingle();
       if(pres) await supa.from('cuenta_corriente').delete().ilike('concepto',`%[PRES:${pres.id}]%`).eq('cliente_id',cliId);
     }
+  } else {
+    // Pago parcial: agregamos crédito para reducir la deuda
+    await supa.from('cuenta_corriente').insert({
+      cliente_id:cliId, tipo:'credito', monto:montoPago,
+      concepto:`[ORD:${ordenId}] Pago parcial orden #${num}`,
+      fecha:hoy(), saldo:0
+    });
   }
-  await supa.from('cuenta_corriente').insert({
-    cliente_id:cliId, tipo:'credito', monto:montoPago,
-    concepto:`[ORD:${ordenId}] Pago orden #${num}${tipo==='completo'?' — pago total':' — pago parcial'}`,
-    fecha:hoy(), saldo:0
-  });
   const {error:cajaErr} = await supa.from('caja').insert({
     tipo:'ingreso', monto:montoPago,
     concepto:`Cobro orden #${num} — ${cliNombre}`,
