@@ -540,7 +540,7 @@ function filtrarClientes(){
   document.getElementById('tabla-clientes').innerHTML = renderTablaClientes(filtrado);
 }
 
-async function fichaCliente(cliId){
+async function fichaCliente(cliId, mesFiltro){
   const c = (window._clientes||[]).find(x=>x.id===cliId)||{};
   const [{data:vehs},{data:ords},{data:pres},{data:movs}] = await Promise.all([
     supa.from('vehiculos').select('*').eq('cliente_id',cliId),
@@ -548,8 +548,26 @@ async function fichaCliente(cliId){
     supa.from('presupuestos').select('*').eq('cliente_id',cliId).order('fecha',{ascending:false}),
     supa.from('cuenta_corriente').select('*').eq('cliente_id',cliId).order('fecha',{ascending:false})
   ]);
-  const saldo = movs?.reduce((a,m)=>m.tipo==='debito'?a+Number(m.monto):a-Number(m.monto),0)||0;
+  window._fichaRaw = {cliId, vehs:vehs||[], ords:ords||[], pres:pres||[], movs:movs||[]};
+  const saldo = (movs||[]).reduce((a,m)=>m.tipo==='debito'?a+Number(m.monto):a-Number(m.monto),0);
   const ultimaVisita = ords?.length ? fmtFecha(ords[0].fecha_ingreso) : '-';
+  const mesActual = hoy().slice(0,7);
+  const mes = mesFiltro || mesActual;
+
+  // Armar lista de meses disponibles (todos los que aparecen en cualquier sección)
+  const todosMeses = [...new Set([
+    ...(ords||[]).map(o=>(o.fecha_ingreso||'').slice(0,7)),
+    ...(pres||[]).map(p=>(p.fecha||'').slice(0,7)),
+    ...(movs||[]).map(m=>(m.fecha||'').slice(0,7))
+  ].filter(Boolean))].sort().reverse();
+
+  const nombreMesFicha = m => {
+    if(!m) return '';
+    const [y,mo] = m.split('-');
+    const ns = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+    return `${ns[parseInt(mo)-1]} ${y}`;
+  };
+
   document.getElementById('content').innerHTML = `
   <div class="card" style="margin-bottom:16px">
     <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
@@ -560,7 +578,7 @@ async function fichaCliente(cliId){
           <div style="font-size:13px;color:var(--text2);margin-top:2px">${c.telefono||'-'} &nbsp;·&nbsp; ${c.email||'-'}</div>
         </div>
       </div>
-      <div style="display:flex;gap:8px">
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
         <button class="btn" onclick="renderClientes()"><i class="ti ti-arrow-left"></i> Volver</button>
         <button class="btn btn-primary" onclick="modalCliente('${cliId}')"><i class="ti ti-edit"></i> Editar</button>
       </div>
@@ -582,45 +600,66 @@ async function fichaCliente(cliId){
     <td><button class="btn btn-sm" onclick="modalVehiculo('${v.id}')"><i class="ti ti-edit"></i></button></td></tr>`).join('')}
     </tbody></table></div>`:'<p style="font-size:13px;color:var(--text2)">Sin vehículos registrados</p>'}
   </div>
+  <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap">
+    <i class="ti ti-calendar" style="color:var(--text2)"></i>
+    <span style="font-size:13px;color:var(--text2);font-weight:500">Filtrar por mes:</span>
+    <select onchange="renderFichaMes('${cliId}',this.value)" style="min-width:160px">
+      <option value="">Todos los meses</option>
+      ${todosMeses.map(m=>`<option value="${m}" ${m===mes&&mesFiltro?'selected':''}>${nombreMesFicha(m)}</option>`).join('')}
+    </select>
+  </div>
+  <div id="ficha-secciones">${renderFichaSecciones(cliId, ords||[], pres||[], movs||[], mesFiltro||'')}</div>`;
+}
+
+function renderFichaSecciones(cliId, ords, pres, movs, mes){
+  const f = x => !mes || (x||'').slice(0,7)===mes;
+  const ordsFilt = ords.filter(o=>f(o.fecha_ingreso));
+  const presFilt = pres.filter(p=>f(p.fecha));
+  const movsFilt = movs.filter(m=>f(m.fecha));
+
+  return `
   <div class="card" style="margin-bottom:16px">
-    <div class="seccion-title" style="margin-bottom:12px"><i class="ti ti-file-text"></i> Órdenes de trabajo</div>
-    ${ords?.length?`<div class="table-wrap"><table><thead><tr><th>#</th><th>Fecha</th><th>Vehículo</th><th>Estado</th><th>Total</th></tr></thead><tbody>
-    ${ords.map(o=>`<tr>
-      <td><strong>#${o.numero}</strong></td>
-      <td>${fmtFecha(o.fecha_ingreso)}</td>
+    <div class="seccion-title" style="margin-bottom:12px"><i class="ti ti-file-text"></i> Órdenes de trabajo${mes?' — '+nombreMesFichaFmt(mes):''}</div>
+    ${ordsFilt.length?`<div class="table-wrap"><table><thead><tr><th>#</th><th>Fecha</th><th>Vehículo</th><th>Estado</th><th>Total</th></tr></thead><tbody>
+    ${ordsFilt.map(o=>`<tr>
+      <td><strong>#${o.numero}</strong></td><td>${fmtFecha(o.fecha_ingreso)}</td>
       <td>${o.vehiculo_patente||''} ${o.vehiculo_marca||''} ${o.vehiculo_modelo||''}</td>
-      <td>${badgeEstado(o.estado)}</td>
-      <td><strong>${fmt(o.total)}</strong></td>
-    </tr>`).join('')}
-    </tbody></table></div>`:'<p style="font-size:13px;color:var(--text2)">Sin órdenes</p>'}
+      <td>${badgeEstado(o.estado)}</td><td><strong>${fmt(o.total)}</strong></td>
+    </tr>`).join('')}</tbody></table></div>`:'<p style="font-size:13px;color:var(--text2)">Sin órdenes'+(mes?' en este mes':'')+`</p>`}
   </div>
   <div class="card" style="margin-bottom:16px">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-      <div class="seccion-title"><i class="ti ti-credit-card"></i> Movimientos de cuenta</div>
-      <button class="btn btn-primary btn-sm" onclick="modalMovimiento('${cliId}')"><i class="ti ti-plus"></i> Nuevo movimiento</button>
+      <div class="seccion-title"><i class="ti ti-credit-card"></i> Movimientos de cuenta${mes?' — '+nombreMesFichaFmt(mes):''}</div>
+      <button class="btn btn-primary btn-sm" onclick="modalMovimiento('${cliId}')"><i class="ti ti-plus"></i> Nuevo</button>
     </div>
-    ${movs?.length?`<div class="table-wrap"><table><thead><tr><th>Fecha</th><th>Descripción</th><th>Tipo</th><th>Monto</th></tr></thead><tbody>
-    ${movs.map(m=>`<tr>
-      <td>${fmtFecha(m.fecha)}</td>
-      <td>${m.concepto||'-'}</td>
+    ${movsFilt.length?`<div class="table-wrap"><table><thead><tr><th>Fecha</th><th>Descripción</th><th>Tipo</th><th>Monto</th></tr></thead><tbody>
+    ${movsFilt.map(m=>`<tr>
+      <td>${fmtFecha(m.fecha)}</td><td>${m.concepto||'-'}</td>
       <td>${m.tipo==='debito'?'<span class="badge badge-red">Débito</span>':'<span class="badge badge-green">Crédito</span>'}</td>
       <td class="${m.tipo==='debito'?'red':'green'}">${fmt(m.monto)}</td>
-    </tr>`).join('')}
-    </tbody></table></div>`:'<p style="font-size:13px;color:var(--text2)">Sin movimientos</p>'}
+    </tr>`).join('')}</tbody></table></div>`:'<p style="font-size:13px;color:var(--text2)">Sin movimientos'+(mes?' en este mes':'')+`</p>`}
   </div>
   <div class="card">
-    <div class="seccion-title" style="margin-bottom:12px"><i class="ti ti-calculator"></i> Presupuestos</div>
-    ${pres?.length?`<div class="table-wrap"><table><thead><tr><th>#</th><th>Fecha</th><th>Estado</th><th>Total</th><th></th></tr></thead><tbody>
-    ${pres.map(p=>{const eb=p.estado==='aprobado'?'badge-green':p.estado==='rechazado'?'badge-red':'badge-amber';
-    return `<tr>
-      <td><strong>#${p.numero}</strong></td>
-      <td>${fmtFecha(p.fecha)}</td>
-      <td><span class="badge ${eb}">${p.estado}</span></td>
-      <td><strong>${fmt(p.total)}</strong></td>
+    <div class="seccion-title" style="margin-bottom:12px"><i class="ti ti-calculator"></i> Presupuestos${mes?' — '+nombreMesFichaFmt(mes):''}</div>
+    ${presFilt.length?`<div class="table-wrap"><table><thead><tr><th>#</th><th>Fecha</th><th>Estado</th><th>Total</th><th></th></tr></thead><tbody>
+    ${presFilt.map(p=>{const eb=p.estado==='aprobado'?'badge-green':p.estado==='rechazado'?'badge-red':'badge-amber';
+    return `<tr><td><strong>#${p.numero}</strong></td><td>${fmtFecha(p.fecha)}</td>
+      <td><span class="badge ${eb}">${p.estado}</span></td><td><strong>${fmt(p.total)}</strong></td>
       <td><button class="btn btn-sm" onclick="verPresupuesto('${p.id}')"><i class="ti ti-eye"></i> Ver</button></td>
-    </tr>`;}).join('')}
-    </tbody></table></div>`:'<p style="font-size:13px;color:var(--text2)">Sin presupuestos</p>'}
+    </tr>`;}).join('')}</tbody></table></div>`:'<p style="font-size:13px;color:var(--text2)">Sin presupuestos'+(mes?' en este mes':'')+`</p>`}
   </div>`;
+}
+
+function nombreMesFichaFmt(m){
+  if(!m) return '';
+  const [y,mo] = m.split('-');
+  const ns=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  return `${ns[parseInt(mo)-1]} ${y}`;
+}
+
+function renderFichaMes(cliId, mes){
+  const d = window._fichaRaw||{};
+  document.getElementById('ficha-secciones').innerHTML = renderFichaSecciones(cliId, d.ords||[], d.pres||[], d.movs||[], mes);
 }
 
 function modalCliente(id){
@@ -2842,6 +2881,7 @@ async function renderCaja(desde, hasta){
       </div>
       <button class="btn btn-primary" onclick="renderCaja(document.getElementById('caja-desde').value, document.getElementById('caja-hasta').value)"><i class="ti ti-search"></i> Buscar</button>
       <button class="btn btn-sm" onclick="renderCaja(null,null)"><i class="ti ti-refresh"></i> Este mes</button>
+      <button class="btn btn-sm" onclick="(()=>{const d=new Date();d.setDate(1);d.setMonth(d.getMonth()-1);const ini=d.toISOString().slice(0,7)+'-01';const fin=new Date(d.getFullYear(),d.getMonth()+1,0).toISOString().slice(0,10);renderCaja(ini,fin)})()"><i class="ti ti-chevron-left"></i> Mes anterior</button>
     </div>
     <div style="margin-top:10px;display:flex;gap:20px;font-size:13px">
       <span>Ingresos del período: <strong class="green">${fmt(ingRango)}</strong></span>
