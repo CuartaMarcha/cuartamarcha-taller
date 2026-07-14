@@ -705,11 +705,12 @@ async function renderVehiculos(){
 
 async function modalVehiculoParaCliente(cliId){
   const {data:cls} = await supa.from('clientes').select('id,nombre,apellido').order('nombre');
+  window._clientesGlobal = cls||[];
+  const cliPre = cls?.find(c=>c.id===cliId);
+  const nombrePre = cliPre ? (cliPre.apellido+', '+cliPre.nombre) : '';
   abrirModal(`
     <div class="modal-title"><span>Nuevo vehículo</span><button class="btn btn-sm" onclick="cerrarModal()"><i class="ti ti-x"></i></button></div>
-    <div><label>Cliente</label><select id="f-cliente-id">
-      ${cls?.map(c=>`<option value="${c.id}" ${c.id===cliId?'selected':''}>${c.nombre} ${c.apellido||''}</option>`).join('')}
-    </select></div>
+    <div><label>Cliente</label>${htmlBuscadorCliente('f-cliente-id', nombrePre, cliId||'')}</div>
     <div class="grid2"><div><label>Marca *</label><input id="f-marca" placeholder="Ej: Peugeot"></div><div><label>Modelo *</label><input id="f-modelo" placeholder="Ej: 308"></div></div>
     <div class="grid3"><div><label>Patente *</label><input id="f-patente" style="text-transform:uppercase"></div><div><label>Año</label><input id="f-anio" type="number" placeholder="Ej: 2019"></div><div><label>Color</label><input id="f-color"></div></div>
     <div><label>Kilometraje</label><input id="f-km" type="number" placeholder="Opcional"></div>
@@ -738,12 +739,13 @@ async function guardarVehiculoYVolverFicha(cliId){
 
 async function modalVehiculo(id){
   const {data:cls} = await supa.from('clientes').select('id,nombre,apellido').order('nombre');
+  window._clientesGlobal = cls||[];
   const v = id?(window._vehiculos||[]).find(x=>x.id===id):{};
+  const cliPre = cls?.find(c=>c.id===v?.cliente_id);
+  const nombrePre = cliPre ? (cliPre.apellido+', '+cliPre.nombre) : '';
   abrirModal(`
     <div class="modal-title"><span>${id?'Editar vehículo':'Nuevo vehículo'}</span><button class="btn btn-sm" onclick="cerrarModal()"><i class="ti ti-x"></i></button></div>
-    <div><label>Cliente *</label><select id="f-cliente-id"><option value="">Seleccioná un cliente</option>
-      ${cls?.map(c=>`<option value="${c.id}" ${v?.cliente_id===c.id?'selected':''}>${c.nombre} ${c.apellido}</option>`).join('')}
-    </select></div>
+    <div><label>Cliente *</label>${htmlBuscadorCliente('f-cliente-id', nombrePre, v?.cliente_id||'')}</div>
     <div class="grid2"><div><label>Marca *</label><input id="f-marca" value="${v?.marca||''}"></div><div><label>Modelo *</label><input id="f-modelo" value="${v?.modelo||''}"></div></div>
     <div class="grid3"><div><label>Año</label><input id="f-anio" value="${v?.anio||''}"></div><div><label>Patente *</label><input id="f-patente" value="${v?.patente||''}"></div><div><label>Color</label><input id="f-color" value="${v?.color||''}"></div></div>
     <div><label>Kilometraje</label><input id="f-km" value="${v?.kilometraje||''}"></div>
@@ -820,6 +822,7 @@ async function modalOrden(id){
   ]);
   window._vehsOrden = vehs||[];
   window._preciosLista = precios||[];
+  window._clientesGlobal = cls||[];
   const o = id?(window._ordenes||[]).find(x=>x.id===id):{};
   let manoObra = o?.total||0;
   if(id){
@@ -846,10 +849,7 @@ async function modalOrden(id){
           <label style="margin:0">Cliente *</label>
           <button type="button" class="btn btn-sm" style="font-size:11px;padding:2px 8px;height:auto" onclick="toggleNuevoClienteOrden()"><i class="ti ti-user-plus"></i> Nuevo</button>
         </div>
-        <select id="f-cli" onchange="filtrarVehsOrden()">
-          <option value="">Seleccioná</option>
-          ${cls?.map(c=>`<option value="${c.id}" ${o?.cliente_id===c.id?'selected':''}>${c.nombre} ${c.apellido||''}</option>`).join('')}
-        </select>
+        ${(()=>{const cliPre=cls?.find(c=>c.id===o?.cliente_id);const nombrePre=cliPre?(cliPre.apellido+', '+cliPre.nombre):'';return htmlBuscadorCliente('f-cli',nombrePre,o?.cliente_id||'');})()}
         <div id="nuevo-cli-form" style="display:none;margin-top:8px;background:#f9f9f9;border:1px solid var(--border);border-radius:8px;padding:12px">
           <div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:8px">Nuevo cliente rápido</div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
@@ -1615,6 +1615,7 @@ async function modalTurno(id){
     supa.from('vehiculos').select('id,patente,marca,modelo,cliente_id').order('patente')
   ]);
   window._vehsTurno = vehs||[];
+  window._clientesGlobal = cls||[];
   const t = id?(window._turnos||[]).find(x=>x.id===id):{};
   abrirModal(`
     <div class="modal-title"><span>${id?'Editar turno':'Nuevo turno'}</span><button class="btn btn-sm" onclick="cerrarModal()"><i class="ti ti-x"></i></button></div>
@@ -1622,10 +1623,7 @@ async function modalTurno(id){
     <div class="grid2">
       <div>
         <label>Cliente registrado</label>
-        <select id="f-cli-t" onchange="toggleClienteLibre();filtrarVehsTurno()">
-          <option value="">— Sin cliente registrado —</option>
-          ${cls?.map(c=>`<option value="${c.id}" data-nombre="${c.nombre} ${c.apellido}" ${t?.cliente_id===c.id?'selected':''}>${c.nombre} ${c.apellido}</option>`).join('')}
-        </select>
+        ${(()=>{const cliPre=cls?.find(c=>c.id===t?.cliente_id);const nombrePre=cliPre?(cliPre.apellido+', '+cliPre.nombre):'';return htmlBuscadorCliente('f-cli-t',nombrePre,t?.cliente_id||'');})()}
         <div id="wrap-nombre-libre" style="margin-top:6px;${!t?.cliente_id&&t?.cliente_nombre?'':'display:none'}">
           <input id="f-nombre-libre-t" placeholder="Nombre del cliente (opcional)" value="${!t?.cliente_id?t?.cliente_nombre||'':''}">
         </div>
@@ -1952,15 +1950,13 @@ async function modalPresupuesto(){
   ]);
   window._presup_items=[];
   window._vehsPres = vehs||[];
+  window._clientesGlobal = cls||[];
   abrirModal(`
     <div class="modal-title"><span>Nuevo presupuesto</span><button class="btn btn-sm" onclick="cerrarModal()"><i class="ti ti-x"></i></button></div>
     <div class="grid2">
       <div>
         <label>Cliente</label>
-        <select id="fp-cli" onchange="filtrarVehsPres();toggleClientePres()">
-          <option value="" data-nombre="Consumidor Final">— Consumidor Final —</option>
-          ${cls?.map(c=>`<option value="${c.id}" data-nombre="${c.nombre} ${c.apellido}">${c.nombre} ${c.apellido}</option>`).join('')}
-        </select>
+        ${htmlBuscadorCliente('fp-cli', '', '', 'Consumidor Final o buscá por nombre...')}
         <input id="fp-nombre-libre" placeholder="Nombre del cliente (opcional)" style="margin-top:6px">
       </div>
       <div><label>Vehículo</label><select id="fp-veh"><option value="">Sin vehículo</option></select></div>
@@ -2325,16 +2321,14 @@ async function crearOrdenDesdePresupuesto(presId, conTurno){
     supa.from('vehiculos').select('id,patente,marca,modelo,cliente_id').order('patente')
   ]);
   window._vehsTurno = vehs||[];
+  window._clientesGlobal = cls||[];
   abrirModal(`
     <div class="modal-title"><span><i class="ti ti-calendar-plus"></i> Agendar turno</span><button class="btn btn-sm" onclick="cerrarModal()"><i class="ti ti-x"></i></button></div>
     <p style="font-size:12px;color:var(--text2);margin-bottom:12px">Orden #${nueva?.numero||''} creada. Completá los datos del turno.</p>
     <div class="grid2">
       <div>
         <label>Cliente</label>
-        <select id="f-cli-t" onchange="toggleClienteLibre();filtrarVehsTurno()">
-          <option value="${p.cliente_id||''}" ${p.cliente_id?'selected':''}>${p.cliente_nombre||'— Sin cliente registrado —'}</option>
-          ${cls?.filter(c=>c.id!==p.cliente_id).map(c=>`<option value="${c.id}">${c.nombre} ${c.apellido}</option>`).join('')}
-        </select>
+        ${(()=>{const cliPre=cls?.find(c=>c.id===p.cliente_id);const nombrePre=cliPre?(cliPre.apellido+', '+cliPre.nombre):(p.cliente_nombre||'');return htmlBuscadorCliente('f-cli-t',nombrePre,p.cliente_id||'');})()}
         <div id="wrap-nombre-libre" style="margin-top:6px;display:none">
           <input id="f-nombre-libre-t" placeholder="Nombre del cliente (opcional)">
         </div>
@@ -2701,11 +2695,12 @@ async function generarReciboPDF(movId){
 
 async function modalMovimiento(cliIdPre){
   const {data:cls} = await supa.from('clientes').select('id,nombre,apellido').order('nombre');
+  window._clientesGlobal = cls||[];
+  const cliPre = cls?.find(c=>c.id===cliIdPre);
+  const nombrePre = cliPre ? (cliPre.apellido+', '+cliPre.nombre) : '';
   abrirModal(`
     <div class="modal-title"><span>Registrar movimiento</span><button class="btn btn-sm" onclick="cerrarModal()"><i class="ti ti-x"></i></button></div>
-    <div><label>Cliente *</label><select id="fm-cli"><option value="">Seleccioná</option>
-      ${cls?.map(c=>`<option value="${c.id}" ${c.id===cliIdPre?'selected':''}>${c.nombre} ${c.apellido}</option>`).join('')}
-    </select></div>
+    <div><label>Cliente *</label>${htmlBuscadorCliente('fm-cli', nombrePre, cliIdPre||'')}</div>
     <div class="grid2">
       <div><label>Tipo *</label><select id="fm-tipo">
         <option value="debito">Débito (genera deuda)</option>
@@ -2800,10 +2795,58 @@ async function renderCaja(desde, hasta){
   </div>`;
 }
 
+function htmlBuscadorCliente(id, nombrePre, valorPre, placeholder){
+  return `<div style="position:relative">
+    <input id="${id}-texto" value="${nombrePre||''}" placeholder="${placeholder||'Escribí nombre o apellido...'}" autocomplete="off"
+      oninput="buscarClienteGenerico('${id}',this.value)"
+      style="width:100%;box-sizing:border-box">
+    <input type="hidden" id="${id}" value="${valorPre||''}">
+    <div id="${id}-lista" style="display:none;position:absolute;z-index:999;background:var(--bg2);border:1px solid var(--border);border-radius:8px;width:100%;max-height:200px;overflow-y:auto;box-shadow:0 4px 16px rgba(0,0,0,.3)"></div>
+  </div>`;
+}
+
+function buscarClienteGenerico(id, texto){
+  const lista = document.getElementById(id+'-lista');
+  const hidden = document.getElementById(id);
+  if(!lista||!hidden) return;
+  hidden.value='';
+  if(!texto.trim()){ lista.style.display='none'; return; }
+  const q = texto.toLowerCase();
+  const matches = (window._clientesGlobal||[]).filter(c=>
+    (c.nombre+' '+c.apellido+' '+c.apellido+' '+c.nombre).toLowerCase().includes(q)
+  ).slice(0,8);
+  if(!matches.length){ lista.style.display='none'; return; }
+  lista.style.display='block';
+  lista.innerHTML = matches.map(c=>`
+    <div onclick="seleccionarClienteGenerico('${id}','${c.id}','${(c.apellido+', '+c.nombre).replace(/'/g,'')}')"
+      style="padding:10px 14px;cursor:pointer;border-bottom:1px solid var(--border);font-size:14px"
+      onmouseover="this.style.background='var(--bg)'" onmouseout="this.style.background=''">
+      ${c.apellido}, ${c.nombre}
+    </div>`).join('');
+}
+
+function seleccionarClienteGenerico(id, valor, nombre){
+  const texto = document.getElementById(id+'-texto');
+  const hidden = document.getElementById(id);
+  const lista = document.getElementById(id+'-lista');
+  if(texto) texto.value=nombre;
+  if(hidden) hidden.value=valor;
+  if(lista) lista.style.display='none';
+  // Disparar callbacks según el id
+  if(id==='f-cli') filtrarVehsOrden(valor);
+  if(id==='f-cli-t') { toggleClienteLibre(); filtrarVehsTurno(); }
+  if(id==='fp-cli') { filtrarVehsPres(); toggleClientePres(); }
+  if(id==='f-cliente-id') {} // sin callback
+  if(id==='fm-cli') {} // sin callback
+  if(id==='fc-cli') filtrarOrdenesCaja(valor);
+}
+
 async function modalCaja(tipo){
   const {data:cls} = await supa.from('clientes').select('id,nombre,apellido').order('apellido');
   const {data:ords} = await supa.from('ordenes').select('id,numero,cliente_nombre,vehiculo_patente,estado').order('numero',{ascending:false}).limit(100);
   window._cajaTipo = tipo;
+  window._cajaClis = cls||[];
+  window._clientesGlobal = cls||[];
   window._cajaOrdenes = ords||[];
   abrirModal(`
     <div class="modal-title"><span>${tipo==='ingreso'?'Registrar ingreso':'Registrar egreso'}</span><button class="btn btn-sm" onclick="cerrarModal()"><i class="ti ti-x"></i></button></div>
@@ -2826,10 +2869,7 @@ async function modalCaja(tipo){
       <div style="font-size:12px;color:var(--text2);font-weight:600;margin-bottom:10px;text-transform:uppercase;letter-spacing:.5px">Asociar a cliente / orden (opcional)</div>
       <div style="margin-bottom:10px">
         <label>Cliente</label>
-        <select id="fc-cli" onchange="filtrarOrdenesCaja()">
-          <option value="">— Sin asociar —</option>
-          ${(cls||[]).map(c=>`<option value="${c.id}">${c.apellido}, ${c.nombre}</option>`).join('')}
-        </select>
+        ${htmlBuscadorCliente('fc-cli', '', '', 'Escribí apellido o nombre...')}
       </div>
       <div id="fc-orden-wrap" style="display:none;margin-bottom:10px">
         <label>Orden de trabajo</label>
@@ -2844,16 +2884,13 @@ async function modalCaja(tipo){
     </div>`);
 }
 
-function filtrarOrdenesCaja(){
-  const cliId = document.getElementById('fc-cli').value;
+
+function filtrarOrdenesCaja(cliId){
+  if(!cliId) cliId = document.getElementById('fc-cli').value;
   const wrap = document.getElementById('fc-orden-wrap');
   const sel = document.getElementById('fc-orden');
   if(!cliId){ wrap.style.display='none'; return; }
   wrap.style.display='block';
-  const ords = (window._cajaOrdenes||[]).filter(o=>o.cliente_id===cliId||String(o.cliente_nombre||'').toLowerCase().includes(''));
-  // Filtrar por cliente buscando en ordenes que tengan ese cliente_id
-  const {data:dummy} = {data:null};
-  // Recargamos ordenes del cliente
   supa.from('ordenes').select('id,numero,vehiculo_patente,estado').eq('cliente_id',cliId).order('numero',{ascending:false}).limit(50).then(({data})=>{
     sel.innerHTML = '<option value="">— Sin asociar a orden —</option>' +
       (data||[]).map(o=>`<option value="${o.id}">Orden #${o.numero} — ${o.vehiculo_patente||''} (${o.estado||''})</option>`).join('');
