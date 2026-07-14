@@ -1033,6 +1033,7 @@ async function modalOrden(id){
     </div>`);
   if(o?.cliente_id) filtrarVehsOrden(o.cliente_id, o.vehiculo_id);
   renderRepuestosOrden();
+  renderServiciosOrden();
   if(id){ cargarFotosExistentes(id); cargarRecordatoriosOrden(id); }
 }
 
@@ -2799,7 +2800,11 @@ async function renderCaja(desde, hasta){
   </div>`;
 }
 
-function modalCaja(tipo){
+async function modalCaja(tipo){
+  const {data:cls} = await supa.from('clientes').select('id,nombre,apellido').order('apellido');
+  const {data:ords} = await supa.from('ordenes').select('id,numero,cliente_nombre,vehiculo_patente,estado').order('numero',{ascending:false}).limit(100);
+  window._cajaTipo = tipo;
+  window._cajaOrdenes = ords||[];
   abrirModal(`
     <div class="modal-title"><span>${tipo==='ingreso'?'Registrar ingreso':'Registrar egreso'}</span><button class="btn btn-sm" onclick="cerrarModal()"><i class="ti ti-x"></i></button></div>
     <div><label>Concepto *</label><input id="fc-concepto" placeholder="${tipo==='ingreso'?'Ej: Cobro orden #12':'Ej: Compra de insumos'}"></div>
@@ -2817,16 +2822,63 @@ function modalCaja(tipo){
       <div><label>Categoría</label><input id="fc-cat" placeholder="${tipo==='ingreso'?'Ej: Servicio':'Ej: Insumos'}"></div>
       <div><label>Fecha</label><input type="date" id="fc-fecha" value="${hoy()}"></div>
     </div>
-    <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:20px">
+    <div style="border-top:1px solid var(--border);margin:16px 0;padding-top:16px">
+      <div style="font-size:12px;color:var(--text2);font-weight:600;margin-bottom:10px;text-transform:uppercase;letter-spacing:.5px">Asociar a cliente / orden (opcional)</div>
+      <div style="margin-bottom:10px">
+        <label>Cliente</label>
+        <select id="fc-cli" onchange="filtrarOrdenesCaja()">
+          <option value="">— Sin asociar —</option>
+          ${(cls||[]).map(c=>`<option value="${c.id}">${c.apellido}, ${c.nombre}</option>`).join('')}
+        </select>
+      </div>
+      <div id="fc-orden-wrap" style="display:none;margin-bottom:10px">
+        <label>Orden de trabajo</label>
+        <select id="fc-orden">
+          <option value="">— Sin asociar a orden —</option>
+        </select>
+      </div>
+    </div>
+    <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:4px">
       <button class="btn" onclick="cerrarModal()">Cancelar</button>
       <button class="btn ${tipo==='ingreso'?'btn-primary':'btn-danger'}" onclick="guardarCaja('${tipo}')">Guardar</button>
     </div>`);
 }
 
+function filtrarOrdenesCaja(){
+  const cliId = document.getElementById('fc-cli').value;
+  const wrap = document.getElementById('fc-orden-wrap');
+  const sel = document.getElementById('fc-orden');
+  if(!cliId){ wrap.style.display='none'; return; }
+  wrap.style.display='block';
+  const ords = (window._cajaOrdenes||[]).filter(o=>o.cliente_id===cliId||String(o.cliente_nombre||'').toLowerCase().includes(''));
+  // Filtrar por cliente buscando en ordenes que tengan ese cliente_id
+  const {data:dummy} = {data:null};
+  // Recargamos ordenes del cliente
+  supa.from('ordenes').select('id,numero,vehiculo_patente,estado').eq('cliente_id',cliId).order('numero',{ascending:false}).limit(50).then(({data})=>{
+    sel.innerHTML = '<option value="">— Sin asociar a orden —</option>' +
+      (data||[]).map(o=>`<option value="${o.id}">Orden #${o.numero} — ${o.vehiculo_patente||''} (${o.estado||''})</option>`).join('');
+  });
+}
+
 async function guardarCaja(tipo){
-  const data={tipo,concepto:document.getElementById('fc-concepto').value.trim(),monto:Number(document.getElementById('fc-monto').value)||0,forma_pago:document.getElementById('fc-pago').value,categoria:document.getElementById('fc-cat').value.trim(),fecha:document.getElementById('fc-fecha').value};
-  if(!data.concepto||!data.monto){alert('Completá concepto y monto');return;}
-  await supa.from('caja').insert(data);
+  const concepto = document.getElementById('fc-concepto').value.trim();
+  const monto = Number(document.getElementById('fc-monto').value)||0;
+  const forma_pago = document.getElementById('fc-pago').value;
+  const categoria = document.getElementById('fc-cat').value.trim();
+  const fecha = document.getElementById('fc-fecha').value;
+  const cliId = document.getElementById('fc-cli')?.value||'';
+  const ordenId = document.getElementById('fc-orden')?.value||'';
+  if(!concepto||!monto){alert('Completá concepto y monto');return;}
+  await supa.from('caja').insert({tipo,concepto,monto,forma_pago,categoria,fecha});
+  // Si hay cliente asociado, crear movimiento en cuenta corriente
+  if(cliId){
+    const tipoCta = tipo==='ingreso' ? 'credito' : 'debito';
+    const marker = ordenId ? `[ORD:${ordenId}] ` : '';
+    await supa.from('cuenta_corriente').insert({
+      cliente_id:cliId, tipo:tipoCta, monto, fecha, saldo:0,
+      concepto:`${marker}${concepto}`
+    });
+  }
   cerrarModal(); await renderCaja();
 }
 
