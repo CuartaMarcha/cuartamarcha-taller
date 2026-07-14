@@ -2836,55 +2836,55 @@ async function eliminarCaja(id){
   await renderCaja();
 }
 
-async function modalArqueoCaja(){
-  const {data} = await supa.from('caja').select('*').order('fecha',{ascending:false}).limit(500);
-  const hoyStr = hoy();
-  const hoyData = data?.filter(c=>c.fecha===hoyStr)||[];
-  const ingresos = hoyData.filter(c=>c.tipo==='ingreso');
-  const egresos  = hoyData.filter(c=>c.tipo==='egreso');
+async function modalArqueoCaja(fechaPreset){
+  abrirModal(`
+    <div class="modal-title">
+      <span><i class="ti ti-lock"></i> Cierre de caja</span>
+      <button class="btn btn-sm" onclick="cerrarModal()"><i class="ti ti-x"></i></button>
+    </div>
+    <div style="margin-bottom:16px">
+      <label style="font-weight:600">Fecha del cierre</label>
+      <input type="date" id="arq-fecha" value="${fechaPreset||hoy()}" onchange="cargarDatosArqueo(this.value)" style="font-size:16px;padding:10px;width:100%">
+    </div>
+    <div id="arq-body"><div style="text-align:center;padding:20px;color:var(--text2)">Cargando...</div></div>`);
+  await cargarDatosArqueo(fechaPreset||hoy());
+}
+
+async function cargarDatosArqueo(fechaStr){
+  const {data} = await supa.from('caja').select('*').eq('fecha',fechaStr);
+  const ingresos = (data||[]).filter(c=>c.tipo==='ingreso');
+  const egresos  = (data||[]).filter(c=>c.tipo==='egreso');
   const totalIng = ingresos.reduce((a,b)=>a+Number(b.monto),0);
   const totalEgr = egresos.reduce((a,b)=>a+Number(b.monto),0);
   const balance  = totalIng - totalEgr;
-
-  // Efectivo del sistema (ingresos efectivo - egresos efectivo)
   const ingEfectivo = ingresos.filter(c=>c.forma_pago==='efectivo').reduce((a,b)=>a+Number(b.monto),0);
   const egrEfectivo = egresos.filter(c=>c.forma_pago==='efectivo').reduce((a,b)=>a+Number(b.monto),0);
   const efectivoSistema = ingEfectivo - egrEfectivo;
-
-  // Agrupado por forma de pago (solo ingresos)
   const formas = {};
   ingresos.forEach(m=>{ const k=m.forma_pago||'sin especificar'; formas[k]=(formas[k]||0)+Number(m.monto); });
   const filasFormas = Object.entries(formas).map(([k,v])=>
     `<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:13px">
       <span style="text-transform:capitalize">${k}</span>
       <span style="font-weight:600;color:var(--green)">${fmt(v)}</span>
-    </div>`).join('') || '<p style="font-size:13px;color:var(--text2)">Sin ingresos hoy</p>';
+    </div>`).join('') || '<p style="font-size:13px;color:var(--text2)">Sin ingresos ese día</p>';
 
-  window._arqueoData = {hoyStr, totalIng, totalEgr, balance, efectivoSistema, formas};
+  window._arqueoData = {hoyStr:fechaStr, totalIng, totalEgr, balance, efectivoSistema, formas};
 
-  abrirModal(`
-    <div class="modal-title">
-      <span><i class="ti ti-lock"></i> Cierre de caja — ${fmtFecha(hoyStr)}</span>
-      <button class="btn btn-sm" onclick="cerrarModal()"><i class="ti ti-x"></i></button>
-    </div>
-
+  document.getElementById('arq-body').innerHTML = `
     <div class="grid3" style="margin-bottom:16px">
-      <div class="metric"><div class="metric-label">Ingresos del día</div><div class="metric-value green">${fmt(totalIng)}</div></div>
-      <div class="metric"><div class="metric-label">Egresos del día</div><div class="metric-value red">${fmt(totalEgr)}</div></div>
+      <div class="metric"><div class="metric-label">Ingresos</div><div class="metric-value green">${fmt(totalIng)}</div></div>
+      <div class="metric"><div class="metric-label">Egresos</div><div class="metric-value red">${fmt(totalEgr)}</div></div>
       <div class="metric"><div class="metric-label">Balance sistema</div><div class="metric-value ${balance>=0?'green':'red'}">${fmt(balance)}</div></div>
     </div>
-
     <div class="card" style="margin-bottom:16px;padding:12px 16px">
       <div style="font-weight:600;margin-bottom:8px">Ingresos por forma de pago</div>
       ${filasFormas}
     </div>
-
     <div class="card" style="margin-bottom:16px;padding:12px 16px;background:var(--bg2)">
       <div style="font-weight:600;margin-bottom:4px">Efectivo esperado en caja</div>
       <div style="font-size:22px;font-weight:700;color:var(--text)">${fmt(efectivoSistema)}</div>
       <div style="font-size:12px;color:var(--text2);margin-top:2px">Ingresos efectivo menos egresos efectivo</div>
     </div>
-
     <div style="margin-bottom:16px">
       <label style="font-weight:600">Efectivo contado físicamente *</label>
       <input type="number" id="arq-fisico" placeholder="0" oninput="
@@ -2896,12 +2896,10 @@ async function modalArqueoCaja(){
         document.getElementById('arq-estado').textContent=d===0?'✓ Caja cuadrada':d>0?'Sobrante':'Faltante';
       " style="font-size:18px;font-weight:700;padding:12px">
     </div>
-
     <div class="card" style="margin-bottom:16px;padding:12px 16px;display:flex;justify-content:space-between;align-items:center">
       <span id="arq-estado" style="font-weight:600;color:var(--text2)">Ingresá el efectivo físico</span>
       <span id="arq-dif" style="font-size:20px;font-weight:700">—</span>
     </div>
-
     <div style="margin-bottom:16px">
       <label>Notas del cierre</label>
       <input id="arq-notas" placeholder="Observaciones opcionales...">
@@ -2941,11 +2939,25 @@ async function confirmarCierreCaja(){
   alert('✓ Cierre de caja registrado correctamente.');
 }
 
-async function modalCierreMensual(mes){
-  const {data} = await supa.from('caja').select('*').eq('fecha', mes ? undefined : undefined).order('fecha');
-  const movs = data?.filter(c=>c.fecha?.slice(0,7)===mes)||[];
-  const ingresos = movs.filter(c=>c.tipo==='ingreso');
-  const egresos  = movs.filter(c=>c.tipo==='egreso');
+async function modalCierreMensual(mesPreset){
+  const mesDefault = mesPreset || hoy().slice(0,7);
+  abrirModal(`
+    <div class="modal-title">
+      <span><i class="ti ti-calendar-month"></i> Cierre mensual</span>
+      <button class="btn btn-sm" onclick="cerrarModal()"><i class="ti ti-x"></i></button>
+    </div>
+    <div style="margin-bottom:16px">
+      <label style="font-weight:600">Mes a cerrar</label>
+      <input type="month" id="arqm-mes" value="${mesDefault}" onchange="cargarDatosArqueoMensual(this.value)" style="font-size:16px;padding:10px;width:100%">
+    </div>
+    <div id="arqm-body"><div style="text-align:center;padding:20px;color:var(--text2)">Cargando...</div></div>`);
+  await cargarDatosArqueoMensual(mesDefault);
+}
+
+async function cargarDatosArqueoMensual(mes){
+  const {data} = await supa.from('caja').select('*').gte('fecha', mes+'-01').lte('fecha', mes+'-31').order('fecha');
+  const ingresos = (data||[]).filter(c=>c.tipo==='ingreso');
+  const egresos  = (data||[]).filter(c=>c.tipo==='egreso');
   const totalIng = ingresos.reduce((a,b)=>a+Number(b.monto),0);
   const totalEgr = egresos.reduce((a,b)=>a+Number(b.monto),0);
   const balance  = totalIng - totalEgr;
@@ -2963,14 +2975,9 @@ async function modalCierreMensual(mes){
   const nombres = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
   const [y,mo] = mes.split('-');
   const nombreMesStr = `${nombres[parseInt(mo)-1]} ${y}`;
-
   window._arqueoMensualData = {mes, nombreMesStr, totalIng, totalEgr, balance, efectivoSistema, formas};
 
-  abrirModal(`
-    <div class="modal-title">
-      <span><i class="ti ti-calendar-month"></i> Cierre mensual — ${nombreMesStr}</span>
-      <button class="btn btn-sm" onclick="cerrarModal()"><i class="ti ti-x"></i></button>
-    </div>
+  document.getElementById('arqm-body').innerHTML = `
     <div class="grid3" style="margin-bottom:16px">
       <div class="metric"><div class="metric-label">Total ingresos</div><div class="metric-value green">${fmt(totalIng)}</div></div>
       <div class="metric"><div class="metric-label">Total egresos</div><div class="metric-value red">${fmt(totalEgr)}</div></div>
@@ -3006,10 +3013,10 @@ async function modalCierreMensual(mes){
     </div>
     <div style="display:flex;gap:8px;justify-content:flex-end">
       <button class="btn" onclick="cerrarModal()">Cancelar</button>
-      <button class="btn" style="background:#111;color:#fff;font-weight:600" onclick="confirmarCierreMensual()">
+      <button class="btn btn-primary" onclick="confirmarCierreMensual()">
         <i class="ti ti-calendar-month"></i> Confirmar cierre mensual
       </button>
-    </div>`);
+    </div>`;
 }
 
 async function confirmarCierreMensual(){
