@@ -1944,21 +1944,45 @@ async function eliminarPrecio(id){
 
 async function renderPresupuestos(){
   const {data} = await supa.from('presupuestos').select('*').order('created_at',{ascending:false});
+  window._presupuestos = data||[];
   document.getElementById('content').innerHTML = `
-  <div style="display:flex;justify-content:flex-end;margin-bottom:20px">
+  <div style="display:flex;gap:10px;align-items:center;margin-bottom:20px;flex-wrap:wrap">
+    <div style="flex:1;min-width:200px;position:relative">
+      <i class="ti ti-search" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--text2)"></i>
+      <input id="pres-buscar" placeholder="Buscar por cliente, patente, N° o fecha..." style="padding-left:34px;width:100%;box-sizing:border-box" oninput="filtrarPresupuestos(this.value)">
+    </div>
     <button class="btn btn-primary" onclick="modalPresupuesto()"><i class="ti ti-plus"></i> Nuevo presupuesto</button>
   </div>
-  <div class="card" style="padding:0">
-  ${data?.length?`<div class="table-wrap"><table><thead><tr><th>#</th><th>Cliente</th><th>Fecha</th><th>Tipo</th><th>Estado</th><th>Total</th><th></th></tr></thead><tbody>
-  ${data.map(p=>{const eb=p.estado==='aprobado'?'badge-green':p.estado==='rechazado'?'badge-red':'badge-amber';
-  return `<tr><td><strong>#${p.numero}</strong></td><td>${p.cliente_nombre||'-'}</td><td>${fmtFecha(p.fecha)}</td><td><span class="badge badge-gray">${p.tipo_precio==='tarjeta'?'Tarjeta':'Contado'}</span></td><td><span class="badge ${eb}">${p.estado}</span></td><td><strong>${fmt(p.total)}</strong></td>
+  <div class="card" style="padding:0" id="pres-tabla">
+  ${renderTablaPresupuestos(data||[])}
+  </div>`;
+}
+
+function renderTablaPresupuestos(lista){
+  if(!lista.length) return '<div class="empty"><i class="ti ti-calculator"></i><p>No hay presupuestos</p></div>';
+  return `<div class="table-wrap"><table><thead><tr><th>#</th><th>Cliente</th><th>Vehículo</th><th>Fecha</th><th>Estado</th><th>Total</th><th></th></tr></thead><tbody>
+  ${lista.map(p=>{
+    const eb=p.estado==='aprobado'?'badge-green':p.estado==='rechazado'?'badge-red':'badge-amber';
+    const veh=[p.vehiculo_patente,p.vehiculo_marca,p.vehiculo_modelo].filter(Boolean).join(' ')||'-';
+    return `<tr><td><strong>#${p.numero}</strong></td><td>${p.cliente_nombre||'-'}</td><td style="font-size:13px">${veh}</td><td>${fmtFecha(p.fecha)}</td><td><span class="badge ${eb}">${p.estado}</span></td><td><strong>${fmt(p.total)}</strong></td>
     <td style="display:flex;gap:4px">
       <button class="btn btn-sm" onclick="verPresupuesto('${p.id}')"><i class="ti ti-eye"></i></button>
       <button class="btn btn-sm" title="Descargar PDF" onclick="generarPresupuestoPDF('${p.id}')"><i class="ti ti-file-download"></i></button>
       <button class="btn btn-sm btn-danger" onclick="eliminarPresupuesto('${p.id}')"><i class="ti ti-trash"></i></button>
-    </td></tr>`;}).join('')}</tbody></table></div>`:'<div class="empty"><i class="ti ti-calculator"></i><p>No hay presupuestos</p></div>'}
-  </div>`;
-  window._presupuestos = data||[];
+    </td></tr>`;
+  }).join('')}</tbody></table></div>`;
+}
+
+function filtrarPresupuestos(q){
+  const txt=q.toLowerCase().trim();
+  const lista=txt?(window._presupuestos||[]).filter(p=>{
+    const veh=[p.vehiculo_patente,p.vehiculo_marca,p.vehiculo_modelo].filter(Boolean).join(' ');
+    return (p.cliente_nombre||'').toLowerCase().includes(txt)
+      ||String(p.numero).includes(txt)
+      ||(p.fecha||'').includes(txt)
+      ||veh.toLowerCase().includes(txt);
+  }):(window._presupuestos||[]);
+  document.getElementById('pres-tabla').innerHTML=renderTablaPresupuestos(lista);
 }
 
 async function modalPresupuesto(){
