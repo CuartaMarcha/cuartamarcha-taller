@@ -1743,6 +1743,7 @@ async function renderTurnos(){
     <td>
       <div style="display:flex;gap:4px;flex-wrap:nowrap">
         ${(t.estado==='pendiente'||t.estado==='confirmado')?`<button class="btn btn-sm btn-primary" onclick="recibirClienteTurno('${t.id}')"><i class="ti ti-user-check"></i> Recibir</button>`:''}
+        ${(()=>{ const tel=(t.telefono_contacto||'').replace(/\D/g,''); if(!tel) return ''; const msg=`Hola ${(t.cliente_nombre||'').split(' ')[0]}! 👋 Te escribimos desde *Cuarta Marcha Taller Mecánico*.\n\nTe contactamos por tu turno del *${fmtFecha(t.fecha)} a las ${(t.hora||'').slice(0,5)}hs*.\n\n¿Vas a poder venir o necesitás reprogramarlo? 📅\n\nTel: 351-344-3965`; return `<a href="https://wa.me/54${tel}?text=${encodeURIComponent(msg)}" target="_blank" class="btn btn-sm" style="background:#25D366;color:#fff;border:none" title="Escribir por WhatsApp"><i class="ti ti-brand-whatsapp"></i></a>`; })()}
         <button class="btn btn-sm" onclick="modalTurno('${t.id}')"><i class="ti ti-edit"></i></button>
         <button class="btn btn-sm btn-danger" onclick="eliminarTurno('${t.id}')"><i class="ti ti-trash"></i></button>
       </div>
