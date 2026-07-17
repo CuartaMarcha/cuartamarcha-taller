@@ -82,7 +82,7 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--primary)
 
 /* ── Tables ── */
 .table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
-table{width:100%;border-collapse:collapse;font-size:13px;min-width:500px}
+table{width:100%;border-collapse:collapse;font-size:13px;min-width:400px}
 th{font-size:11px;color:var(--text2);text-align:left;padding:9px 8px;border-bottom:2px solid var(--border);font-weight:600;text-transform:uppercase;letter-spacing:.04em;white-space:nowrap}
 td{padding:9px 8px;border-bottom:1px solid var(--border);vertical-align:middle}
 tr:last-child td{border-bottom:none}
@@ -733,8 +733,8 @@ async function renderVehiculos(){
     <button class="btn btn-primary" onclick="modalVehiculo()"><i class="ti ti-plus"></i> Nuevo vehículo</button>
   </div>
   <div class="card" style="padding:0">
-  ${data?.length?`<div class="table-wrap"><table><thead><tr><th>Patente</th><th>Marca / Modelo</th><th>Año</th><th>Color</th><th>Cliente</th><th>KM</th><th></th></tr></thead><tbody>
-  ${data.map(v=>`<tr><td><strong>${v.patente}</strong></td><td>${v.marca} ${v.modelo}</td><td>${v.anio||'-'}</td><td>${v.color||'-'}</td><td>${v.clientes?.nombre||''} ${v.clientes?.apellido||''}</td><td>${v.kilometraje||'-'}</td>
+  ${data?.length?`<div class="table-wrap"><table><thead><tr><th>Patente</th><th>Marca / Modelo</th><th class="hide-mobile">Año</th><th class="hide-mobile">Color</th><th>Cliente</th><th class="hide-mobile">KM</th><th></th></tr></thead><tbody>
+  ${data.map(v=>`<tr><td><strong>${v.patente}</strong></td><td>${v.marca} ${v.modelo}</td><td class="hide-mobile">${v.anio||'-'}</td><td class="hide-mobile">${v.color||'-'}</td><td>${v.clientes?.nombre||''} ${v.clientes?.apellido||''}</td><td class="hide-mobile">${v.kilometraje||'-'}</td>
     <td style="display:flex;gap:4px">
       <button class="btn btn-sm" onclick="fichaVehiculo('${v.id}')"><i class="ti ti-eye"></i> Ver</button>
       <button class="btn btn-sm" onclick="modalVehiculo('${v.id}')"><i class="ti ti-edit"></i></button>
@@ -881,12 +881,12 @@ async function eliminarVehiculo(id){
 
 function renderTablaOrdenes(data){
   if(!data?.length) return '<div class="empty"><i class="ti ti-file-off"></i><p>No hay órdenes</p></div>';
-  return `<div class="table-wrap"><table><thead><tr><th>#</th><th>Cliente</th><th>Vehículo</th><th>Ingreso</th><th>Mecánico</th><th>Prioridad</th><th>Estado</th><th>Total</th><th></th></tr></thead><tbody>
+  return `<div class="table-wrap"><table><thead><tr><th>#</th><th>Cliente</th><th class="hide-mobile">Vehículo</th><th class="hide-mobile">Ingreso</th><th class="hide-mobile">Mecánico</th><th class="hide-mobile">Prioridad</th><th>Estado</th><th>Total</th><th></th></tr></thead><tbody>
   ${data.map(o=>`<tr>
     <td><strong>#${o.numero}</strong></td><td>${o.cliente_nombre||'-'}</td>
-    <td>${o.vehiculo_patente||''} ${o.vehiculo_marca||''} ${o.vehiculo_modelo||''}</td>
-    <td>${fmtFecha(o.fecha_ingreso)}</td><td>${o.mecanico||'-'}</td>
-    <td>${badgePrioridad(o.prioridad)}</td><td>${badgeEstado(o.estado)}</td>
+    <td class="hide-mobile">${o.vehiculo_patente||''} ${o.vehiculo_marca||''} ${o.vehiculo_modelo||''}</td>
+    <td class="hide-mobile">${fmtFecha(o.fecha_ingreso)}</td><td class="hide-mobile">${o.mecanico||'-'}</td>
+    <td class="hide-mobile">${badgePrioridad(o.prioridad)}</td><td>${badgeEstado(o.estado)}</td>
     <td><strong>${fmt(o.total)}</strong></td>
     <td style="white-space:nowrap">
       <div style="display:flex;gap:4px">
@@ -1732,13 +1732,13 @@ async function renderTurnos(){
   </div>
   <div class="card" style="padding:0">
   <div class="table-wrap">
-  ${proximos.length?`<table><thead><tr><th>Fecha / Hora</th><th>Cliente</th><th>Vehículo</th><th>Trabajo</th><th>Mecánico</th><th>Estado</th><th></th></tr></thead><tbody>
+  ${proximos.length?`<table><thead><tr><th>Fecha / Hora</th><th>Cliente</th><th class="hide-mobile">Vehículo</th><th class="hide-mobile">Trabajo</th><th class="hide-mobile">Mecánico</th><th>Estado</th><th></th></tr></thead><tbody>
   ${proximos.map(t=>`<tr>
     <td><strong>${fmtFecha(t.fecha)}</strong><br><span style="font-size:12px;color:var(--text2)">${t.hora?.slice(0,5)}hs</span></td>
     <td><div style="font-weight:500">${t.cliente_nombre||'-'}</div><div style="font-size:11px;color:var(--text2)">${t.telefono_contacto||''}</div></td>
-    <td style="font-size:12px">${t.vehiculo_patente?`<strong>${t.vehiculo_patente}</strong><br>${t.vehiculo_modelo||''}`:t.vehiculo_modelo||'-'}</td>
-    <td style="max-width:140px;white-space:normal">${t.tipo_trabajo}</td>
-    <td>${t.mecanico||'-'}</td>
+    <td class="hide-mobile" style="font-size:12px">${t.vehiculo_patente?`<strong>${t.vehiculo_patente}</strong><br>${t.vehiculo_modelo||''}`:t.vehiculo_modelo||'-'}</td>
+    <td class="hide-mobile" style="max-width:140px;white-space:normal">${t.tipo_trabajo}</td>
+    <td class="hide-mobile">${t.mecanico||'-'}</td>
     <td>${badgeEstado(t.estado)}</td>
     <td>
       <div style="display:flex;gap:4px;flex-wrap:nowrap">
@@ -2085,11 +2085,11 @@ async function renderPresupuestos(){
 
 function renderTablaPresupuestos(lista){
   if(!lista.length) return '<div class="empty"><i class="ti ti-calculator"></i><p>No hay presupuestos</p></div>';
-  return `<div class="table-wrap"><table><thead><tr><th>#</th><th>Cliente</th><th>Vehículo</th><th>Fecha</th><th>Estado</th><th>Total</th><th></th></tr></thead><tbody>
+  return `<div class="table-wrap"><table><thead><tr><th>#</th><th>Cliente</th><th class="hide-mobile">Vehículo</th><th class="hide-mobile">Fecha</th><th>Estado</th><th>Total</th><th></th></tr></thead><tbody>
   ${lista.map(p=>{
     const eb=p.estado==='aprobado'?'badge-green':p.estado==='rechazado'?'badge-red':'badge-amber';
     const veh=[p.vehiculo_patente,p.vehiculo_marca,p.vehiculo_modelo].filter(Boolean).join(' ')||'-';
-    return `<tr><td><strong>#${p.numero}</strong></td><td>${p.cliente_nombre||'-'}</td><td style="font-size:13px">${veh}</td><td>${fmtFecha(p.fecha)}</td><td><span class="badge ${eb}">${p.estado}</span></td><td><strong>${fmt(p.total)}</strong></td>
+    return `<tr><td><strong>#${p.numero}</strong></td><td>${p.cliente_nombre||'-'}</td><td class="hide-mobile" style="font-size:13px">${veh}</td><td class="hide-mobile">${fmtFecha(p.fecha)}</td><td><span class="badge ${eb}">${p.estado}</span></td><td><strong>${fmt(p.total)}</strong></td>
     <td style="display:flex;gap:4px">
       <button class="btn btn-sm" onclick="verPresupuesto('${p.id}')"><i class="ti ti-eye"></i></button>
       <button class="btn btn-sm" title="Descargar PDF" onclick="generarPresupuestoPDF('${p.id}')"><i class="ti ti-file-download"></i></button>
@@ -2954,8 +2954,8 @@ async function renderCaja(desde, hasta){
     </div>
   </div>
   <div class="card" style="padding:0;margin-bottom:24px">
-  ${data?.length?`<div class="table-wrap"><table><thead><tr><th>Fecha</th><th>Tipo</th><th>Concepto</th><th>Categoría</th><th>Forma de pago</th><th>Monto</th><th></th></tr></thead><tbody>
-  ${data.map(c=>`<tr><td>${fmtFecha(c.fecha)}</td><td>${c.tipo==='ingreso'?'<span class="badge badge-green">Ingreso</span>':'<span class="badge badge-red">Egreso</span>'}</td><td>${c.concepto}</td><td>${c.categoria||'-'}</td><td>${c.forma_pago||'-'}</td><td class="${c.tipo==='ingreso'?'green':'red'}"><strong>${fmt(c.monto)}</strong></td>
+  ${data?.length?`<div class="table-wrap"><table><thead><tr><th>Fecha</th><th>Tipo</th><th>Concepto</th><th class="hide-mobile">Categoría</th><th class="hide-mobile">Forma de pago</th><th>Monto</th><th></th></tr></thead><tbody>
+  ${data.map(c=>`<tr><td>${fmtFecha(c.fecha)}</td><td>${c.tipo==='ingreso'?'<span class="badge badge-green">Ingreso</span>':'<span class="badge badge-red">Egreso</span>'}</td><td>${c.concepto}</td><td class="hide-mobile">${c.categoria||'-'}</td><td class="hide-mobile">${c.forma_pago||'-'}</td><td class="${c.tipo==='ingreso'?'green':'red'}"><strong>${fmt(c.monto)}</strong></td>
     <td><button class="btn btn-sm btn-danger" onclick="eliminarCaja('${c.id}')"><i class="ti ti-trash"></i></button></td></tr>`).join('')}</tbody></table></div>`:'<div class="empty"><i class="ti ti-cash"></i><p>Sin movimientos en el período</p></div>'}
   </div>
   <div class="seccion-title">Cierres diarios del período</div>
